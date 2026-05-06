@@ -1,0 +1,73 @@
+{
+  "csv_paths": [
+    "Data hasil/data_with_velocity1 (majulurus).csv",
+    "Data hasil/kotak 2 loop.csv",
+    "Data hasil/kotak 3 loop.csv",
+    "Data hasil/diam.csv"
+  ],
+  "split_mode": "chronological_by_file",
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "time_steps": 30,
+  "batch_size": 64,
+  "learning_rate": 0.001,
+  "retrain_model": false,
+  "model_path": "output_lstm_no_leakage/best_lstm_residual_corrector.keras",
+  "calibration_metric": "rmse_euclidean",
+  "selected_calibrator": {
+    "name": "Kalman + LSTM affine calibrated",
+    "alpha_x": 2.7830104534748763,
+    "beta_x": 0.3807319545904737,
+    "alpha_y": 2.6250428796667777,
+    "beta_y": 0.17407029304889118
+  },
+  "feature_cols": [
+    "x",
+    "y",
+    "x_kf",
+    "y_kf",
+    "d1",
+    "d2",
+    "d3",
+    "el1",
+    "el2",
+    "el3",
+    "raw_minus_kf_x",
+    "raw_minus_kf_y",
+    "raw_vs_kf_dist",
+    "d1_innov",
+    "d2_innov",
+    "d3_innov",
+    "el1_innov",
+    "el2_innov",
+    "el3_innov",
+    "d12_diff",
+    "d23_diff",
+    "d13_diff",
+    "kf_dx",
+    "kf_dy",
+    "raw_dx",
+    "raw_dy",
+    "kf_speed",
+    "raw_speed",
+    "dt"
+  ],
+  "target_cols": [
+    "err_x",
+    "err_y"
+  ],
+  "anchors": {
+    "1": [
+      5.92,
+      5.02
+    ],
+    "2": [
+      0.0,
+      0.0
+    ],
+    "3": [
+      10.58,
+      0.0
+    ]
+  }
+}
