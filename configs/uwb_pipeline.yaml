@@ -1,0 +1,126 @@
+# Clean, reproducible UWB localization pipeline.
+# Default split is by-track to avoid sequence leakage between train and test.
+
+random_seed: 42
+
+data:
+  csv_paths:
+    - "Data hasil/data_with_velocity1 (majulurus).csv"
+    - "Data hasil/kotak 2 loop.csv"
+    - "Data hasil/kotak 3 loop.csv"
+    - "Data hasil/diam.csv"
+  sort_by_time: true
+  static_calibration_tracks:
+    - "diam.csv"
+
+columns:
+  time: ["time", "timestamp", "t"]
+  ranges:
+    "1": ["d1", "range_1", "range_anchor_1"]
+    "2": ["d2", "range_2", "range_anchor_2"]
+    "3": ["d3", "range_3", "range_anchor_3"]
+  ground_truth:
+    x: ["x_true", "gt_x"]
+    y: ["y_true", "gt_y"]
+  raw_position:
+    x: ["x", "raw_x"]
+    y: ["y", "raw_y"]
+  legacy_kf_position:
+    x: ["x_kf", "legacy_kf_x"]
+    y: ["y_kf", "legacy_kf_y"]
+
+anchors:
+  "1":
+    x: 5.92
+    y: 5.02
+    bias: 0.0
+  "2":
+    x: 0.0
+    y: 0.0
+    bias: 0.0
+  "3":
+    x: 10.58
+    y: 0.0
+    bias: 0.0
+
+split:
+  # Recommended scientific options: by_track or leave_one_track_out.
+  # by_track is the default here so that full trajectories are held out before
+  # calibration, scaling, sequence-window creation, early stopping, and testing.
+  strategy: "by_track"
+  train_tracks:
+    - "data_with_velocity1 (majulurus)"
+    - "kotak 2 loop"
+    - "diam"
+  validation_tracks:
+    []
+  test_tracks:
+    - "kotak 3 loop"
+  # If validation_tracks is empty, reserve the tail of each train trajectory as
+  # validation while keeping the selected test trajectory fully held out.
+  validation_within_train_ratio: 0.15
+  leave_out_track: "kotak 3 loop"
+  train_ratio: 0.70
+  val_ratio: 0.15
+
+range_calibration:
+  enabled: true
+  method: "huber"          # linear, huber, or ransac
+  min_samples_per_anchor: 50
+  min_robust_samples: 200
+
+anchor_optimization:
+  # Disabled by default because the current dataset can push anchors to the
+  # movement bounds, which is a sign of overfitting the train split.
+  enabled: false
+  optimize_bias: true
+  max_anchor_move_m: 0.15
+  max_bias_m: 0.50
+  move_regularization_m: 0.10
+  bias_regularization_m: 0.50
+  loss: "soft_l1"
+  max_samples: 20000
+
+ekf:
+  process_noise_accel: 0.20
+  measurement_noise: 0.20
+  initial_position_std: 1.00
+  initial_velocity_std: 1.00
+  gating_threshold: 9.21   # chi-square approx 99% for 2D-ish innovation; per-anchor gate here
+  min_valid_anchors: 3
+  default_dt: 0.05
+  max_dt: 0.25
+  enable_gating: true
+
+lstm:
+  sequence_length: 30
+  hidden_size: 96
+  dropout: 0.25
+  dense_dropout: 0.15
+  gaussian_noise: 0.01
+  learning_rate: 0.001
+  min_learning_rate: 0.00001
+  batch_size: 64
+  epochs: 200
+  patience: 20
+  huber_delta: 1.0
+  clipnorm: 1.0
+  residual_clip_m: 0.50
+  lstm_weight_lambda: 1.0
+
+constraint:
+  enabled: false
+  type: "rectangle"
+  max_projection_m: 0.50
+  rectangle:
+    x_min: 1.0
+    x_max: 5.0
+    y_min: 1.0
+    y_max: 3.0
+
+plotting:
+  language: "en"           # en or id
+
+output:
+  base_dir: "outputs/uwb_calibrated_pipeline"
+  run_name: null

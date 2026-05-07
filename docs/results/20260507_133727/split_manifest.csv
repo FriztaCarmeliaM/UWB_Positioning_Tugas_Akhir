@@ -1,0 +1,8 @@
+split,trajectory,source_file,rows,time_min,time_max
+train,data_with_velocity1 (majulurus),data_with_velocity1 (majulurus).csv,13423,0.083760406,69.71431974
+val,data_with_velocity1 (majulurus),data_with_velocity1 (majulurus).csv,2369,69.71964743,82.01095708
+train,kotak 2 loop,kotak 2 loop.csv,19510,0.137114579,101.3527077
+val,kotak 2 loop,kotak 2 loop.csv,3443,101.3578435,119.2368814
+test,kotak 3 loop,kotak 3 loop.csv,29375,0.126162919,152.452301
+train,diam,diam.csv,1433,0.131641202,7.548973747
+val,diam,diam.csv,253,7.554114453,8.857686038

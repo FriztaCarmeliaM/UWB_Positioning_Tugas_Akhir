@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+
+# Full pipeline runs can be large. Curated result snapshots for README live in
+# docs/results/ and are intentionally tracked.
+outputs/
+

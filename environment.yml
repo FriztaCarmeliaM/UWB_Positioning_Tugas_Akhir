@@ -1,0 +1,14 @@
+name: tensor
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - joblib
+  - pyyaml
+  - tensorflow=2.19.1
+
