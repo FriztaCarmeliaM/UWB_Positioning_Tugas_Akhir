@@ -366,13 +366,25 @@ Perbandingan utama:
 
 ![Full Trajectory Comparison](docs/results/20260507_133727/full_trajectory_comparison.png)
 
-#### 5.5.4 Trajectory Test: Kotak 3 Loop
+#### 5.5.4 Trajectory per Lintasan
 
-![Trajectory Kotak 3 Loop](docs/results/20260507_133727/trajectory_kotak_3_loop.png)
+| Majulurus | Kotak 2 Loop |
+| --- | --- |
+| ![Trajectory Majulurus](docs/results/20260507_133727/trajectory_data_with_velocity1_majulurus.png) | ![Trajectory Kotak 2 Loop](docs/results/20260507_133727/trajectory_kotak_2_loop.png) |
 
-#### 5.5.5 Error Over Time: Kotak 3 Loop
+| Kotak 3 Loop | Diam |
+| --- | --- |
+| ![Trajectory Kotak 3 Loop](docs/results/20260507_133727/trajectory_kotak_3_loop.png) | ![Trajectory Diam](docs/results/20260507_133727/trajectory_diam.png) |
 
-![Error Over Time Kotak 3 Loop](docs/results/20260507_133727/error_over_time_kotak_3_loop.png)
+#### 5.5.5 Error Over Time per Lintasan
+
+| Majulurus | Kotak 2 Loop |
+| --- | --- |
+| ![Error Over Time Majulurus](docs/results/20260507_133727/error_over_time_data_with_velocity1_majulurus.png) | ![Error Over Time Kotak 2 Loop](docs/results/20260507_133727/error_over_time_kotak_2_loop.png) |
+
+| Kotak 3 Loop | Diam |
+| --- | --- |
+| ![Error Over Time Kotak 3 Loop](docs/results/20260507_133727/error_over_time_kotak_3_loop.png) | ![Error Over Time Diam](docs/results/20260507_133727/error_over_time_diam.png) |
 
 #### 5.5.6 Residual Distribution LSTM
 
