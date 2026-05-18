@@ -1,0 +1,12 @@
+{
+  "selection_metric": "validation EKF only rmse_2d_m",
+  "validation_rmse_2d_m": 0.1800929328172004,
+  "validation_mae_2d_m": 0.15712258316451913,
+  "validation_p95_error_m": 0.3006560366200999,
+  "params": {
+    "process_noise_accel": 0.35,
+    "measurement_noise": 0.08,
+    "gating_threshold": 16.27,
+    "enable_gating": true
+  }
+}

@@ -12,7 +12,7 @@ from uwb_localization.artifacts import get_run_dir, stage_dir
 from uwb_localization.config import load_config
 from uwb_localization.constraints import apply_trajectory_constraint
 from uwb_localization.lstm import apply_lstm_residual
-from uwb_localization.metrics import evaluate_predictions, save_metrics
+from uwb_localization.metrics import evaluate_predictions, evaluate_predictions_by_group, save_metrics
 
 
 def main() -> None:
@@ -49,6 +49,9 @@ def main() -> None:
     predictions.to_csv(out_dir / "predictions.csv", index=False)
     metrics = evaluate_predictions(predictions)
     save_metrics(metrics, out_dir)
+    segment_metrics = evaluate_predictions_by_group(predictions, "gt_segment")
+    if not segment_metrics.empty:
+        segment_metrics.to_csv(out_dir / "segment_metrics.csv", index=False)
     print(f"[06] Predictions saved to {out_dir / 'predictions.csv'}")
     print(f"[06] Metrics saved to {out_dir / 'metrics.csv'}")
     print(f"[06] Next: python scripts/07_plot_results.py --config {args.config}")
@@ -56,4 +59,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

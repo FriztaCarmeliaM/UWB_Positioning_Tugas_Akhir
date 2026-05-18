@@ -1,0 +1,6 @@
+split,trajectory,rows,anchor_1_replaced_pct,anchor_2_replaced_pct,anchor_3_replaced_pct
+train,10lup_trilat_gt,5814,0.0,2.5971792225662194,0.0
+val,10lup_trilat_gt,1027,0.0,1.071080817916261,0.0
+train,10lup1_trilat_gt,6398,0.0,2.1881838074398248,0.0
+val,10lup1_trilat_gt,1130,0.5309734513274336,0.4424778761061947,0.0
+test,10lup2_trilat_gt,8055,0.06207324643078833,2.6815642458100557,0.0

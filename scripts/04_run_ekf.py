@@ -36,6 +36,12 @@ def main() -> None:
         anchors = anchor_dict(config)
         print("[04] Optimized anchors not found; using anchors from config.")
 
+    tuning_path = run_dir / "04_ekf_tuning" / "best_ekf_params.json"
+    if tuning_path.exists():
+        tuning_payload = load_json(tuning_path)
+        config.setdefault("ekf", {}).update(tuning_payload.get("params", {}))
+        print(f"[04] Using validation-tuned EKF params: {tuning_path}")
+
     df = pd.read_csv(source_path)
     print("[04] Running EKF directly from UWB ranges...")
     ekf_df = run_ekf_dataset(df, anchors, config)
@@ -50,4 +56,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,14 +1,18 @@
 # UWB Indoor Localization: Calibrated EKF and LSTM Residual Correction
 
-Repository ini berisi penelitian lokalisasi indoor berbasis Ultra-Wideband (UWB)
-untuk tugas akhir. Implementasi terbaru menggunakan pipeline yang reproducible
-dan **no-data-leakage** dengan tahapan kalibrasi range, EKF berbasis pengukuran
-jarak langsung, LSTM residual correction, evaluasi, dan plotting.
+Repository ini berisi penelitian lokalisasi indoor berbasis Ultra-Wideband
+(UWB) untuk tugas akhir. Implementasi terbaru menggunakan pipeline yang
+reproducible dan **no-data-leakage** dengan tahapan pembentukan ground truth
+berbasis waypoint, kalibrasi range, preprocessing range, optimasi anchor, EKF
+berbasis pengukuran jarak langsung, LSTM residual correction, evaluasi, dan
+plotting.
 
-**Status hasil terbaru:** EKF berbasis range memperbaiki baseline raw
-trilateration dan Kalman lama pada lintasan test held-out. LSTM residual
-correction belum meningkatkan generalisasi pada test set, sehingga hasil utama
-yang paling kuat saat ini adalah **EKF only**.
+**Status hasil terbaru:** konfigurasi terbaik yang paling layak dijadikan hasil
+utama adalah eksperimen 10-loop dengan train/test terpisah. Pada test set
+`10lup2_trilat_gt`, metode **EKF + LSTM residual** menurunkan RMSE 2D dari raw
+trilateration sebesar **24.95 cm** menjadi **11.25 cm**. Target error 5 cm belum
+tercapai secara valid, tetapi pipeline sudah menunjukkan peningkatan yang jelas
+dan evaluasinya dilakukan tanpa data leakage.
 
 ---
 
@@ -53,21 +57,23 @@ yang paling kuat saat ini adalah **EKF only**.
 ## 1. Abstrak
 
 Penelitian ini mengevaluasi sistem lokalisasi indoor berbasis UWB menggunakan
-pendekatan berlapis: kalibrasi jarak per anchor, Extended Kalman Filter (EKF)
-berbasis range, dan LSTM residual correction. Pipeline terbaru dirancang untuk
-menghindari data leakage dengan memisahkan train, validation, dan test sebelum
-proses fitting kalibrasi, scaler, sequence window, dan training model.
+pendekatan berlapis, yaitu pembentukan ground truth berbasis waypoint, kalibrasi
+range per anchor, preprocessing range untuk mengurangi lonjakan pembacaan,
+Extended Kalman Filter (EKF) berbasis range, dan LSTM residual correction.
+Pipeline terbaru dirancang untuk menghindari data leakage dengan memisahkan
+train, validation, dan test sebelum proses fitting kalibrasi, optimasi anchor,
+scaler, sequence window, tuning EKF, dan training model LSTM.
 
-Hasil terbaru menunjukkan bahwa EKF berbasis range memberikan peningkatan pada
-lintasan test held-out dibanding raw trilateration dan Kalman lama. Namun, LSTM
-residual correction belum meningkatkan generalisasi pada test set. Hal ini
-mengindikasikan bahwa kualitas data range UWB dan variasi lintasan masih menjadi
-faktor pembatas utama.
+Hasil terbaru menunjukkan bahwa raw trilateration masih memiliki error test
+sekitar 24.95 cm RMSE 2D. Setelah diproses menggunakan EKF dan LSTM residual
+correction, error test turun menjadi 11.25 cm RMSE 2D. Hasil ini menunjukkan
+bahwa metode yang digunakan mampu memperbaiki estimasi posisi secara signifikan,
+meskipun target 5 cm belum tercapai secara valid pada dataset saat ini.
 
 ### 1.1 Kata Kunci
 
-UWB indoor localization, Extended Kalman Filter, range calibration, LSTM
-residual correction, no data leakage, trajectory evaluation.
+UWB indoor localization, waypoint ground truth, range calibration, Extended
+Kalman Filter, LSTM residual correction, no data leakage, trajectory evaluation.
 
 ---
 
@@ -76,34 +82,49 @@ residual correction, no data leakage, trajectory evaluation.
 ### 2.1 Latar Belakang
 
 Ultra-Wideband (UWB) sering digunakan untuk lokalisasi indoor karena mampu
-memberikan estimasi jarak antar perangkat. Namun, pada praktiknya pengukuran UWB
-rentan terhadap bias, multipath, NLOS, kesalahan posisi anchor, dan noise
-temporal. Oleh karena itu, estimasi posisi langsung dari trilaterasi raw range
-sering belum cukup stabil.
+memberikan estimasi jarak antar perangkat dengan resolusi waktu yang tinggi.
+Namun, pada praktiknya pengukuran UWB tetap rentan terhadap bias, multipath,
+NLOS, perbedaan tinggi antara tag dan anchor, kesalahan posisi anchor, noise
+temporal, serta lonjakan pembacaan pada kondisi tertentu. Oleh karena itu,
+estimasi posisi langsung dari trilaterasi raw range sering belum cukup stabil
+untuk menghasilkan posisi robot yang akurat.
+
+Pada eksperimen terbaru, robot bergerak pada lintasan persegi dengan waypoint
+fisik `(1,1)`, `(3,1)`, `(3,3)`, dan `(1,3)`. Ground truth tidak dibentuk dari
+plot prediksi, tetapi dari informasi waypoint dan timestamp saat robot mulai
+bergerak atau sampai pada waypoint. Pendekatan ini lebih dapat dipertanggungjawabkan
+karena ground truth berasal dari titik lintasan yang diukur saat eksperimen.
 
 ### 2.2 Tujuan Penelitian
 
 Tujuan penelitian ini adalah:
 
 1. Membangun pipeline lokalisasi UWB yang reproducible dan no-data-leakage.
-2. Mengevaluasi performa raw trilateration, Kalman lama, EKF berbasis range, dan
-   LSTM residual correction.
-3. Melaporkan hasil secara jujur menggunakan metrik posisi 2D, terutama
+2. Membentuk ground truth lintasan berdasarkan waypoint dan catatan waktu
+   eksperimen.
+3. Mengevaluasi performa raw trilateration, EKF berbasis range, dan LSTM
+   residual correction.
+4. Melaporkan hasil menggunakan metrik posisi 2D, terutama
    **2D Euclidean RMSE**.
-4. Menentukan apakah dataset saat ini cukup untuk mendekati target error 5 cm.
+5. Menentukan apakah dataset saat ini sudah cukup untuk memenuhi target error
+   5 cm secara valid.
 
 ### 2.3 Catatan Target Akurasi 5 cm
 
 Target error di bawah 5 cm hanya valid jika diuji pada setup yang sangat
-terkontrol: posisi anchor presisi, kondisi line-of-sight dominan, kalibrasi range
-yang kuat, dan ground truth yang akurat. Metrik utama harus menggunakan RMSE 2D:
+terkontrol: posisi anchor presisi, kondisi line-of-sight dominan, sampling
+stabil, kalibrasi range kuat, dan ground truth akurat sampai level sentimeter.
+Metrik utama harus menggunakan RMSE 2D:
 
 ```text
 RMSE_2D = sqrt(mean((x_pred - x_true)^2 + (y_pred - y_true)^2))
 ```
 
-Pada dataset terbaru, error range UWB di test set masih berada pada skala puluhan
-sentimeter, sehingga target 5 cm belum realistis untuk diklaim.
+Pada dataset terbaru, hasil terbaik test set adalah 11.25 cm RMSE 2D. Dengan
+demikian, target 5 cm belum dapat diklaim secara valid. Namun, hasil tersebut
+tetap menunjukkan peningkatan yang jelas karena error raw trilateration turun
+dari 24.95 cm menjadi 11.25 cm setelah diproses menggunakan EKF dan LSTM
+residual correction.
 
 ---
 
@@ -111,25 +132,38 @@ sentimeter, sehingga target 5 cm belum realistis untuk diklaim.
 
 ### 3.1 Dataset
 
-Dataset berada di folder `Data hasil/`.
+Dataset raw terbaru berada di folder `Data hasil/`. Ground truth berbasis
+waypoint dihasilkan ke folder `Data eksperimen/latest_waypoint_ground_truth/`.
 
-| File | Deskripsi | Peran pada config terbaru |
-| --- | --- | --- |
-| `data_with_velocity1 (majulurus).csv` | Lintasan maju lurus | Train dan validation tail |
-| `kotak 2 loop.csv` | Lintasan kotak dua putaran | Train dan validation tail |
-| `diam.csv` | Tag diam | Train dan validation tail |
-| `kotak 3 loop.csv` | Lintasan kotak tiga putaran | Test held-out |
+| File raw | File ground truth | Deskripsi | Peran pada config terbaik |
+| --- | --- | --- | --- |
+| `10lup+trilat.csv` | `10lup_trilat_gt.csv` | Lintasan persegi 10 loop | Train |
+| `10lup1+trilat.csv` | `10lup1_trilat_gt.csv` | Lintasan persegi 10 loop sesi lain | Train, dengan sebagian akhir menjadi validation |
+| `10lup2+trilat.csv` | `10lup2_trilat_gt.csv` | Lintasan persegi 10 loop sesi test | Test held-out |
+| `trilat5lup.csv` | `trilat5lup_gt.csv` | Lintasan persegi 5 loop | Eksperimen tambahan |
+| `trilat5lup1.csv` | `trilat5lup1_gt.csv` | Lintasan persegi 5 loop sesi lain | Eksperimen tambahan |
 
-Kolom utama yang tersedia:
+Kolom utama pada dataset terbaru:
 
 | Kelompok | Kolom |
 | --- | --- |
 | Waktu | `time` |
-| Range UWB | `d1`, `d2`, `d3` |
-| Estimasi jarak tambahan | `el1`, `el2`, `el3` |
+| Range UWB miring | `d1`, `d2`, `d3` |
+| Range datar hasil koreksi tinggi | `el1`, `el2`, `el3` |
 | Raw trilateration | `x`, `y` |
-| Kalman lama | `x_kf`, `y_kf` |
-| Ground truth | `x_true`, `y_true` |
+| Ground truth waypoint | `gt_x`, `gt_y`, `gt_segment`, `gt_loop_id` |
+
+Koordinat anchor yang digunakan:
+
+| Anchor | Koordinat |
+| --- | --- |
+| Anchor 1 | `(2.26, 4.60)` |
+| Anchor 2 | `(0.00, 0.00)` |
+| Anchor 3 | `(4.55, 0.00)` |
+
+Pipeline EKF menggunakan `el1`, `el2`, dan `el3` sebagai input range karena EKF
+2D memodelkan jarak datar antara tag dan anchor. Nilai `el` berasal dari
+koreksi Pythagoras terhadap pembacaan UWB miring dengan selisih tinggi perangkat.
 
 ### 3.2 Struktur Kode
 
@@ -137,11 +171,14 @@ Implementasi pipeline baru:
 
 ```text
 configs/
-  uwb_pipeline.yaml
+  uwb_pipeline_latest.yaml
+  uwb_pipeline_10loop_final.yaml
+  uwb_pipeline_10loop_moretrain.yaml
 
 src/uwb_localization/
   data.py
   calibration.py
+  preprocessing.py
   anchor_optimization.py
   ekf.py
   features.py
@@ -151,9 +188,11 @@ src/uwb_localization/
   plotting.py
 
 scripts/
+  00_make_waypoint_ground_truth.py
   01_prepare_dataset.py
   02_calibrate_ranges.py
   03_optimize_anchors.py
+  04_tune_ekf.py
   04_run_ekf.py
   05_train_lstm_residual.py
   06_evaluate_pipeline.py
@@ -166,15 +205,25 @@ Dokumentasi pipeline detail tersedia di:
 
 ### 3.3 Snapshot Hasil Terbaru
 
-Snapshot hasil terbaru yang diringkas di README ini berada di:
+Snapshot ringan hasil terbaru yang diringkas di README ini berada di:
 
 ```text
-docs/results/20260507_133727/
+docs/results/20260518_213455/
 ```
 
-Folder tersebut hanya berisi artifact ringan untuk dokumentasi: metrics,
-configuration snapshot, calibration summary, dan plot gambar. Full output mentah
-pipeline tetap berada secara lokal di `outputs/`.
+Folder tersebut berisi metrics, parameter kalibrasi range, hasil optimasi
+anchor, hasil tuning EKF, configuration snapshot, dan plot. Full output
+pipeline tetap berada secara lokal di:
+
+```text
+outputs/uwb_10loop_moretrain_pipeline/20260518_213455/
+```
+
+Konfigurasi yang digunakan adalah:
+
+```text
+configs/uwb_pipeline_10loop_moretrain.yaml
+```
 
 ---
 
@@ -186,17 +235,21 @@ Pipeline membaca seluruh file CSV, menstandardisasi nama kolom, memvalidasi
 kolom wajib, dan menambahkan metadata:
 
 ```text
-source_file, trajectory, segment_id, sample_index, split
+source_file, trajectory, segment_id, sample_index, split,
+gt_segment, gt_loop_id, gt_segment_progress
 ```
 
-Strategi split terbaru:
+Strategi split pada konfigurasi terbaik:
 
-1. `kotak 3 loop` digunakan sebagai **test held-out**.
-2. Track train adalah `majulurus`, `kotak 2 loop`, dan `diam`.
-3. Validation dibuat dari bagian akhir setiap trajectory train.
+1. `10lup_trilat_gt` digunakan sebagai data train.
+2. `10lup1_trilat_gt` digunakan sebagai data train, dengan 15% bagian akhir
+   menjadi validation.
+3. `10lup2_trilat_gt` digunakan sebagai **test held-out**.
+4. File test tidak digunakan untuk fitting kalibrasi, optimasi anchor, scaler,
+   early stopping, tuning EKF, atau training LSTM.
 
-Pendekatan ini menjaga test trajectory tidak digunakan pada fitting kalibrasi,
-anchor optimization, scaler, early stopping, atau pemilihan model.
+Pendekatan ini menjaga evaluasi tetap no-data-leakage karena test set berasal
+dari sesi pengambilan data terpisah dan tidak ikut dipakai saat training.
 
 ### 4.2 Kalibrasi Range per Anchor
 
@@ -207,22 +260,33 @@ d_corrected = a * d_raw + b
 ```
 
 Parameter `a` dan `b` hanya di-fit pada train split. Ground-truth distance
-dihitung dari posisi ground truth tag terhadap posisi anchor.
+dihitung dari posisi ground truth tag terhadap posisi anchor. Setelah kalibrasi,
+range diproses menggunakan filter robust untuk mengurangi lonjakan pembacaan
+UWB yang tidak masuk akal secara temporal.
+
+Preprocessing range yang digunakan:
+
+1. Hampel/median filtering untuk mendeteksi spike lokal.
+2. Pembatasan perubahan range antar-sampel.
+3. Exponential moving average ringan agar data tidak terlalu bergetar.
 
 ### 4.3 Anchor Optimization
 
-Pipeline mendukung anchor optimization menggunakan nonlinear least squares.
-Namun, pada konfigurasi terbaru fitur ini dibuat **disabled**:
+Pipeline mendukung anchor optimization untuk mengoreksi kecil posisi anchor dan
+bias range berdasarkan train split. Optimasi dilakukan dengan batas perpindahan
+agar posisi anchor tidak berubah secara tidak realistis.
+
+Pada konfigurasi terbaik, anchor optimization aktif:
 
 ```yaml
 anchor_optimization:
-  enabled: false
+  enabled: true
+  max_anchor_move_m: 0.15
+  max_bias_m: 0.50
 ```
 
-Alasannya: pada eksperimen sebelumnya, anchor optimization bergerak sampai batas
-maksimum, yang menunjukkan potensi overfit terhadap train split. Untuk hasil
-yang lebih defensible, eksperimen terbaru menggunakan posisi anchor asli dari
-konfigurasi.
+Hasil optimasi anchor tetap dibatasi dan hanya di-fit pada train split. Dengan
+demikian, koreksi anchor tidak menggunakan informasi dari test set.
 
 ### 4.4 Extended Kalman Filter Berbasis Range
 
@@ -248,6 +312,16 @@ EKF mendukung:
 3. Process noise dan measurement noise configurable.
 4. Innovation gating dan outlier rejection.
 5. Minimum valid anchor count.
+6. Tuning parameter EKF berdasarkan validation split.
+
+Parameter EKF terbaik pada run terbaru:
+
+| Parameter | Nilai |
+| --- | ---: |
+| `process_noise_accel` | `0.35` |
+| `measurement_noise` | `0.08` |
+| `gating_threshold` | `16.27` |
+| `enable_gating` | `true` |
 
 ### 4.5 LSTM Residual Correction
 
@@ -265,6 +339,11 @@ Estimasi akhir:
 x_lstm = x_ekf + residual_x_pred
 y_lstm = y_ekf + residual_y_pred
 ```
+
+Fitur input LSTM mencakup posisi EKF, kecepatan EKF, covariance, innovation
+residual, calibrated/filtered range, range difference, delta time, dan motion
+features. Scaler hanya di-fit pada train split, validation hanya digunakan untuk
+early stopping, dan test tidak disentuh selama training.
 
 Untuk mencegah koreksi tidak realistis, residual output di-clip menggunakan
 `residual_clip_m`.
@@ -284,111 +363,119 @@ Metrik yang dilaporkan:
 9. Max error.
 10. Persentase sample di bawah 5 cm, 10 cm, 20 cm, dan 50 cm.
 
+Metrik utama untuk klaim akurasi adalah **RMSE 2D Euclidean**, karena posisi
+robot berada pada bidang 2D dan error harus dihitung dari gabungan error sumbu
+X dan Y.
+
 ---
 
 ## 5. Hasil Eksperimen Terbaru
 
 ### 5.1 Split Eksperimen
 
+Konfigurasi hasil terbaik menggunakan `configs/uwb_pipeline_10loop_moretrain.yaml`.
+
 | Split | Trajectory | Jumlah Sample |
 | --- | --- | ---: |
-| Train | Majulurus | 13,423 |
-| Train | Kotak 2 Loop | 19,510 |
-| Train | Diam | 1,433 |
-| Validation | Majulurus | 2,369 |
-| Validation | Kotak 2 Loop | 3,443 |
-| Validation | Diam | 253 |
-| Test | Kotak 3 Loop | 29,375 |
+| Train | `10lup_trilat_gt` | 5,814 |
+| Train | `10lup1_trilat_gt` | 6,398 |
+| Validation | `10lup_trilat_gt` | 1,027 |
+| Validation | `10lup1_trilat_gt` | 1,130 |
+| Test | `10lup2_trilat_gt` | 8,055 |
+
+Jumlah sample yang masuk ke evaluasi LSTM sedikit lebih kecil dari jumlah raw
+sample karena LSTM membutuhkan sequence window sepanjang 30 sample.
 
 ### 5.2 Hasil Kalibrasi Range
 
-Parameter kalibrasi range:
+Parameter kalibrasi range di-fit menggunakan train split saja. Setelah itu
+parameter diterapkan ke train, validation, dan test.
 
-| Anchor | `a` | `b` | Train RMSE Raw | Train RMSE Calibrated |
-| --- | ---: | ---: | ---: | ---: |
-| 1 | 0.8453 | 0.5738 | 0.396 m | 0.299 m |
-| 2 | 0.8417 | 0.5843 | 0.361 m | 0.307 m |
-| 3 | 0.8006 | 1.7030 | 0.458 m | 0.400 m |
+Pada run terbaik, preprocessing range mengganti sebagian kecil data yang
+terdeteksi sebagai lonjakan:
 
-Range residual RMSE setelah dicek per split:
+| Split | Trajectory | Anchor 1 replaced | Anchor 2 replaced | Anchor 3 replaced |
+| --- | --- | ---: | ---: | ---: |
+| Train | `10lup_trilat_gt` | 0.00% | 2.32% | 0.00% |
+| Train | `10lup1_trilat_gt` | 0.08% | 1.90% | 0.00% |
+| Test | `10lup2_trilat_gt` | 0.06% | 2.64% | 0.00% |
 
-| Split | Anchor 1 | Anchor 2 | Anchor 3 |
-| --- | ---: | ---: | ---: |
-| Train raw -> calibrated | 0.396 -> 0.299 m | 0.361 -> 0.307 m | 0.458 -> 0.400 m |
-| Validation raw -> calibrated | 0.421 -> 0.182 m | 0.552 -> 0.386 m | 0.239 -> 0.386 m |
-| Test raw -> calibrated | 0.699 -> 0.610 m | 0.714 -> 0.613 m | 0.657 -> 0.613 m |
-
-Interpretasi: kalibrasi membantu, tetapi error range test masih sekitar
-**0.61 m**, sehingga target posisi 5 cm belum realistis.
+Hasil ini menunjukkan bahwa mayoritas data tetap dipertahankan, sedangkan
+preprocessing hanya menangani spike yang tampak tidak konsisten secara temporal.
 
 ### 5.3 Hasil Kuantitatif Test Set
 
-Evaluasi pada test held-out `kotak 3 loop`:
+Evaluasi pada test held-out `10lup2_trilat_gt`:
 
-| Model | RMSE X | RMSE Y | RMSE 2D | MAE 2D | P95 Error | < 5 cm | < 10 cm | < 20 cm | < 50 cm |
+| Model | RMSE X | RMSE Y | RMSE 2D | MAE 2D | Median Error | P95 Error | < 5 cm | < 10 cm | < 20 cm |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Raw trilateration | 0.646 m | 0.753 m | 0.992 m | 0.908 m | 1.624 m | 0.00% | 0.00% | 0.20% | 14.61% |
-| Legacy position KF | 0.692 m | 0.755 m | 1.024 m | 0.932 m | 1.582 m | 0.00% | 0.00% | 2.99% | 18.88% |
-| EKF only | 0.613 m | 0.632 m | **0.881 m** | **0.813 m** | **1.371 m** | 0.00% | 0.00% | 1.40% | **19.80%** |
-| EKF + LSTM residual | 0.633 m | 0.675 m | 0.925 m | 0.845 m | 1.414 m | 0.42% | 1.03% | 5.10% | 16.66% |
+| Raw trilateration | 0.176 m | 0.164 m | 0.249 m | 0.219 m | 0.212 m | 0.426 m | 4.97% | 16.35% | 45.83% |
+| EKF only | 0.120 m | 0.123 m | 0.171 m | 0.152 m | 0.149 m | 0.293 m | 10.05% | 30.36% | 72.27% |
+| EKF + LSTM residual | **0.077 m** | **0.082 m** | **0.113 m** | **0.095 m** | **0.085 m** | **0.209 m** | **25.64%** | **59.05%** | **93.65%** |
 
 Perbandingan utama:
 
 | Perbandingan | Perubahan RMSE 2D |
 | --- | ---: |
-| EKF only vs Raw trilateration | **+11.24% lebih baik** |
-| EKF only vs Legacy position KF | **+13.99% lebih baik** |
-| EKF + LSTM residual vs EKF only | **-5.04% lebih buruk** |
+| EKF only vs Raw trilateration | 31.30% lebih baik |
+| EKF + LSTM residual vs EKF only | 34.36% lebih baik |
+| EKF + LSTM residual vs Raw trilateration | 54.91% lebih baik |
+
+Interpretasi utama: LSTM residual correction berhasil memperbaiki output EKF
+pada test set yang tidak digunakan saat training. Namun, error akhir masih
+11.25 cm RMSE 2D, sehingga target 5 cm belum tercapai secara valid.
 
 ### 5.4 Hasil Per Lintasan
 
 | Split | Trajectory | Model Terbaik | RMSE 2D Terbaik |
 | --- | --- | --- | ---: |
-| Train | Majulurus | EKF + LSTM residual | 0.472 m |
-| Train | Kotak 2 Loop | EKF + LSTM residual | 0.371 m |
-| Train | Diam | Legacy position KF | 0.201 m |
-| Validation | Majulurus | EKF only | 0.378 m |
-| Validation | Kotak 2 Loop | EKF + LSTM residual | 0.716 m |
-| Validation | Diam | Legacy position KF | 0.204 m |
-| Test | Kotak 3 Loop | EKF only | 0.881 m |
+| Train | `10lup_trilat_gt` | EKF + LSTM residual | 0.142 m |
+| Train | `10lup1_trilat_gt` | EKF + LSTM residual | 0.076 m |
+| Validation | `all` | EKF + LSTM residual | 0.121 m |
+| Test | `10lup2_trilat_gt` | EKF + LSTM residual | 0.113 m |
+
+Sebagai pembanding, eksperimen yang melibatkan data 5-loop menghasilkan performa
+test lebih rendah karena catatan waktunya hanya berupa interval awal-gerak dan
+akhir-gerak, bukan timestamp waypoint yang detail. Oleh karena itu, hasil
+10-loop lebih kuat untuk dijadikan hasil utama.
 
 ### 5.5 Visualisasi
 
 #### 5.5.1 Perbandingan Metode pada Test Set
 
-![Test Method Comparison](docs/results/20260507_133727/test_method_comparison.png)
+![Test Method Comparison](docs/results/20260518_213455/test_method_comparison.png)
 
 #### 5.5.2 CDF Error 2D pada Test Set
 
-![Test Error CDF](docs/results/20260507_133727/test_error_cdf.png)
+![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png)
 
 #### 5.5.3 Full Trajectory Comparison
 
-![Full Trajectory Comparison](docs/results/20260507_133727/full_trajectory_comparison.png)
+![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png)
 
 #### 5.5.4 Trajectory per Lintasan
 
-| Majulurus | Kotak 2 Loop |
+| Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
-| ![Trajectory Majulurus](docs/results/20260507_133727/trajectory_data_with_velocity1_majulurus.png) | ![Trajectory Kotak 2 Loop](docs/results/20260507_133727/trajectory_kotak_2_loop.png) |
+| ![Trajectory 10lup](docs/results/20260518_213455/trajectory_10lup_trilat_gt.png) | ![Trajectory 10lup1](docs/results/20260518_213455/trajectory_10lup1_trilat_gt.png) |
 
-| Kotak 3 Loop | Diam |
+| Test `10lup2` | Full Comparison |
 | --- | --- |
-| ![Trajectory Kotak 3 Loop](docs/results/20260507_133727/trajectory_kotak_3_loop.png) | ![Trajectory Diam](docs/results/20260507_133727/trajectory_diam.png) |
+| ![Trajectory 10lup2](docs/results/20260518_213455/trajectory_10lup2_trilat_gt.png) | ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png) |
 
 #### 5.5.5 Error Over Time per Lintasan
 
-| Majulurus | Kotak 2 Loop |
+| Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
-| ![Error Over Time Majulurus](docs/results/20260507_133727/error_over_time_data_with_velocity1_majulurus.png) | ![Error Over Time Kotak 2 Loop](docs/results/20260507_133727/error_over_time_kotak_2_loop.png) |
+| ![Error Over Time 10lup](docs/results/20260518_213455/error_over_time_10lup_trilat_gt.png) | ![Error Over Time 10lup1](docs/results/20260518_213455/error_over_time_10lup1_trilat_gt.png) |
 
-| Kotak 3 Loop | Diam |
+| Test `10lup2` | Test CDF |
 | --- | --- |
-| ![Error Over Time Kotak 3 Loop](docs/results/20260507_133727/error_over_time_kotak_3_loop.png) | ![Error Over Time Diam](docs/results/20260507_133727/error_over_time_diam.png) |
+| ![Error Over Time 10lup2](docs/results/20260518_213455/error_over_time_10lup2_trilat_gt.png) | ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png) |
 
 #### 5.5.6 Residual Distribution LSTM
 
-![LSTM Residual Distribution](docs/results/20260507_133727/lstm_residual_distribution.png)
+![LSTM Residual Distribution](docs/results/20260518_213455/lstm_residual_distribution.png)
 
 ---
 
@@ -396,38 +483,53 @@ Perbandingan utama:
 
 ### 6.1 Interpretasi Hasil
 
-Hasil terbaru menunjukkan bahwa EKF berbasis range adalah metode paling kuat pada
-test held-out. EKF memperbaiki raw trilateration dan Kalman lama, tetapi LSTM
-residual correction belum meningkatkan generalisasi test. Pada train set, LSTM
-mampu menurunkan error, tetapi pada test set performanya memburuk. Ini
-menunjukkan residual yang dipelajari LSTM belum stabil antar trajectory.
+Hasil terbaru menunjukkan bahwa pipeline berlapis mampu meningkatkan akurasi
+lokalisasi UWB. Raw trilateration pada test set menghasilkan RMSE 2D sebesar
+24.95 cm. Setelah diproses menggunakan EKF, RMSE 2D turun menjadi 17.14 cm.
+Setelah ditambahkan LSTM residual correction, RMSE 2D turun lagi menjadi 11.25
+cm.
+
+Peningkatan ini menunjukkan bahwa EKF mampu menstabilkan estimasi posisi dari
+range UWB, sedangkan LSTM residual correction mampu mempelajari pola residual
+yang masih tersisa dari output EKF. Karena test set tidak digunakan saat
+training, peningkatan pada test set dapat dianggap sebagai peningkatan
+generalisasi, bukan akibat data leakage.
 
 ### 6.2 Mengapa Target 5 cm Belum Realistis
 
-Target 5 cm belum realistis pada dataset saat ini karena error range test setelah
-kalibrasi masih sekitar 0.61 m per anchor. Jika input jarak ke anchor masih
-memiliki error puluhan sentimeter, estimasi posisi 2D yang valid secara ilmiah
-sulit mencapai error 5 cm tanpa constraint lintasan yang sangat kuat atau data
-leakage.
+Target 5 cm belum realistis pada dataset saat ini karena beberapa alasan:
 
-Dengan kata lain, keterbatasan utama bukan hanya algoritma, tetapi kualitas dan
-karakteristik data range UWB.
+1. Ground truth waypoint masih berbasis timestamp detik, belum timestamp presisi
+   sampai pecahan detik.
+2. UWB masih menunjukkan spike dan bias berbeda pada area lintasan tertentu.
+3. Perbedaan tinggi tag-anchor perlu dikoreksi, sehingga error kecil pada
+   pembacaan jarak dapat memengaruhi jarak datar.
+4. Raw trilateration test masih memiliki RMSE 2D sekitar 24.95 cm, sehingga
+   input awal belum cukup bersih untuk menghasilkan posisi akhir 5 cm secara
+   valid.
+5. Klaim 5 cm hanya aman jika didukung ground truth presisi dan kondisi
+   eksperimen yang sangat terkontrol.
+
+Dengan kata lain, keterbatasan utama bukan hanya algoritma, tetapi juga kualitas
+range UWB dan presisi ground truth.
 
 ### 6.3 Implikasi untuk Tugas Akhir
 
 Narasi yang paling aman untuk tugas akhir:
 
-> EKF berbasis range mampu memperbaiki performa lokalisasi UWB dibanding raw
-> trilateration dan Kalman lama pada lintasan test held-out. LSTM residual
-> correction belum mampu meningkatkan generalisasi pada lintasan yang tidak
-> dilihat saat training, sehingga LSTM diposisikan sebagai eksperimen tambahan,
-> bukan hasil utama.
+> Pipeline lokalisasi UWB telah dibuat dengan prinsip no-data-leakage melalui
+> pemisahan train, validation, dan test sebelum proses kalibrasi, tuning, dan
+> training. Pada test set terpisah, EKF + LSTM residual correction menurunkan
+> RMSE 2D dari 24.95 cm pada raw trilateration menjadi 11.25 cm. Hasil ini
+> menunjukkan adanya peningkatan akurasi yang signifikan, meskipun target 5 cm
+> belum tercapai karena keterbatasan kualitas range UWB dan presisi ground
+> truth.
 
 Narasi yang sebaiknya dihindari:
 
 > Sistem mencapai akurasi 5 cm menggunakan LSTM.
 
-Klaim tersebut belum didukung oleh dataset saat ini.
+Klaim tersebut belum didukung oleh hasil evaluasi test set saat ini.
 
 ---
 
@@ -438,19 +540,19 @@ Klaim tersebut belum didukung oleh dataset saat ini.
 Aktifkan conda environment:
 
 ```bash
-conda activate tensor
+conda activate uwb-ta
 ```
 
 Jika dependency belum lengkap:
 
 ```bash
-conda install -n tensor -c conda-forge pyyaml scipy joblib -y
+conda install -n uwb-ta -c conda-forge numpy pandas scipy scikit-learn matplotlib joblib pyyaml tensorflow=2.19.1 pyserial pillow -y
 ```
 
 Alternatif:
 
 ```bash
-conda env update -n tensor -f environment.yml
+conda env update -n uwb-ta -f environment.yml
 ```
 
 ### 7.2 Urutan Eksekusi
@@ -458,13 +560,15 @@ conda env update -n tensor -f environment.yml
 Jalankan dari root repository:
 
 ```bash
-python scripts/01_prepare_dataset.py --config configs/uwb_pipeline.yaml
-python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline.yaml
-python scripts/03_optimize_anchors.py --config configs/uwb_pipeline.yaml
-python scripts/04_run_ekf.py --config configs/uwb_pipeline.yaml
-python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline.yaml
-python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline.yaml
-python scripts/07_plot_results.py --config configs/uwb_pipeline.yaml
+python scripts/00_make_waypoint_ground_truth.py --manual-times configs/latest_waypoint_times.yaml
+python scripts/01_prepare_dataset.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/03_optimize_anchors.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/04_tune_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/04_run_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/07_plot_results.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 ### 7.3 Output Pipeline
@@ -472,7 +576,7 @@ python scripts/07_plot_results.py --config configs/uwb_pipeline.yaml
 Setiap run membuat folder timestamp:
 
 ```text
-outputs/uwb_calibrated_pipeline/<timestamp>/
+outputs/uwb_10loop_moretrain_pipeline/<timestamp>/
 ```
 
 Output penting:
@@ -480,11 +584,12 @@ Output penting:
 | Folder | Isi |
 | --- | --- |
 | `01_prepared/` | Dataset tersplit dan manifest |
-| `02_range_calibration/` | Parameter kalibrasi range |
+| `02_range_calibration/` | Parameter kalibrasi range dan summary preprocessing |
 | `03_anchor_optimization/` | Anchor config yang digunakan |
+| `04_ekf_tuning/` | Grid tuning EKF dan parameter terbaik |
 | `04_ekf/` | Output EKF per sample |
 | `05_lstm_residual/` | Model LSTM, scaler, training history |
-| `06_evaluation/` | Metrics dan predictions |
+| `06_evaluation/` | Metrics, segment metrics, dan predictions |
 | `07_plots/` | Plot trajectory, CDF, bar chart, residual |
 
 ---
@@ -492,16 +597,15 @@ Output penting:
 ## 8. Kesimpulan
 
 Pipeline terbaru sudah memenuhi prinsip no-data-leakage dan memberikan evaluasi
-yang lebih valid. Pada hasil terbaru, **EKF only** adalah metode terbaik pada
-test held-out dengan RMSE 2D sebesar **0.881 m**, lebih baik daripada raw
-trilateration dan Kalman lama. LSTM residual correction belum memperbaiki test
-set, sehingga belum layak dijadikan klaim utama.
+yang lebih valid. Pada hasil terbaik, metode **EKF + LSTM residual correction**
+menjadi metode terbaik pada test held-out `10lup2_trilat_gt` dengan RMSE 2D
+sebesar **0.1125 m** atau sekitar **11.25 cm**. Hasil ini lebih baik daripada
+raw trilateration sebesar **0.2495 m** dan EKF only sebesar **0.1714 m**.
 
-Target akurasi 5 cm belum realistis untuk dataset saat ini karena error range
-UWB setelah kalibrasi masih berada pada kisaran 0.61 m pada test set. Untuk
-mendekati 5 cm, dibutuhkan pengambilan data ulang dengan setup kalibrasi yang
-lebih terkontrol, posisi anchor lebih presisi, dan ground truth yang lebih
-akurat.
+Target akurasi 5 cm belum tercapai secara valid untuk dataset saat ini. Namun,
+pipeline yang dibuat sudah menunjukkan peningkatan akurasi yang jelas, dapat
+direproduksi, dan dapat dipertanggungjawabkan karena seluruh proses kalibrasi,
+tuning, training, dan evaluasi dilakukan dengan pemisahan data yang benar.
 
 ---
 
@@ -509,10 +613,13 @@ akurat.
 
 | File / Folder | Keterangan |
 | --- | --- |
-| `configs/uwb_pipeline.yaml` | Konfigurasi utama pipeline terbaru |
+| `configs/uwb_pipeline_10loop_moretrain.yaml` | Konfigurasi utama hasil terbaik |
+| `configs/latest_waypoint_times.yaml` | Catatan waktu waypoint dan interval gerak |
+| `configs/uwb_pipeline_latest.yaml` | Konfigurasi eksperimen semua dataset terbaru |
+| `Data eksperimen/latest_waypoint_ground_truth/` | CSV hasil ground truth waypoint |
 | `src/uwb_localization/` | Source code modular |
 | `scripts/` | Script CLI per stage |
 | `docs/UWB_CALIBRATED_PIPELINE.md` | Dokumentasi pipeline detail |
-| `docs/results/20260507_133727/metrics.csv` | Metrics hasil terbaru |
-| `docs/results/20260507_133727/` | Snapshot gambar dan artifact ringan |
+| `docs/results/20260518_213455/metrics.csv` | Metrics hasil terbaik |
+| `docs/results/20260518_213455/` | Snapshot gambar dan artifact ringan hasil terbaik |
 | `output_lstm_no_leakage/` | Output eksperimen LSTM lama/no-leakage awal |

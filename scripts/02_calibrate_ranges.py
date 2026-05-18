@@ -11,6 +11,7 @@ bootstrap()
 from uwb_localization.artifacts import get_run_dir, stage_dir
 from uwb_localization.calibration import apply_range_calibration, fit_range_calibration, save_range_calibration
 from uwb_localization.config import load_config
+from uwb_localization.preprocessing import apply_range_preprocessing, range_preprocessing_summary
 
 
 def main() -> None:
@@ -36,9 +37,12 @@ def main() -> None:
     save_range_calibration(calibration, out_dir / "range_calibration.json")
 
     calibrated = apply_range_calibration(df, calibration)
+    calibrated = apply_range_preprocessing(calibrated, config)
     calibrated.to_csv(out_dir / "all_samples_calibrated.csv", index=False)
     for split, part in calibrated.groupby("split", sort=False):
         part.to_csv(out_dir / f"{split}.csv", index=False)
+    if "range_filt_1" in calibrated.columns:
+        range_preprocessing_summary(calibrated, config).to_csv(out_dir / "range_preprocessing_summary.csv", index=False)
 
     print(f"[02] Calibration saved to {out_dir / 'range_calibration.json'}")
     print(f"[02] Next: python scripts/03_optimize_anchors.py --config {args.config}")
@@ -46,4 +50,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

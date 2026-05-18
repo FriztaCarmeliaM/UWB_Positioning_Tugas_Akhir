@@ -5,19 +5,13 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import least_squares
 
 from .config import anchor_dict, save_json
+from .preprocessing import preferred_range_column
 
 
 def _measurement_column(df: pd.DataFrame, anchor_id: str) -> str:
-    calibrated = f"range_cal_{anchor_id}"
-    raw = f"range_{anchor_id}"
-    if calibrated in df.columns:
-        return calibrated
-    if raw in df.columns:
-        return raw
-    raise ValueError(f"No range column found for anchor {anchor_id}.")
+    return preferred_range_column(df, anchor_id)
 
 
 def optimize_anchors(train_df: pd.DataFrame, config: dict) -> dict[str, Any]:
@@ -50,12 +44,19 @@ def optimize_anchors(train_df: pd.DataFrame, config: dict) -> dict[str, Any]:
     gt = train_df[["gt_x", "gt_y"]].to_numpy(dtype=float)
     ranges = np.column_stack([train_df[_measurement_column(train_df, anchor_id)].to_numpy(dtype=float) for anchor_id in anchor_ids])
 
-    p0 = np.zeros(2 * n + (n if optimize_bias else 0), dtype=float)
-    lower = np.full_like(p0, -max_move)
-    upper = np.full_like(p0, max_move)
+    params = np.zeros(2 * n + (n if optimize_bias else 0), dtype=float)
+    lower = np.full_like(params, -max_move)
+    upper = np.full_like(params, max_move)
     if optimize_bias:
         lower[2 * n :] = -max_bias
         upper[2 * n :] = max_bias
+    initial_steps = np.full_like(params, max(max_move / 2.0, 1e-3))
+    if optimize_bias:
+        initial_steps[2 * n :] = max(max_bias / 2.0, 1e-3)
+    min_step = float(opt_cfg.get("min_coordinate_step_m", 1e-4))
+    max_passes = int(opt_cfg.get("coordinate_passes", 24))
+    reg_weight = float(opt_cfg.get("regularization_weight", 0.01))
+    loss_scale = float(opt_cfg.get("loss_scale_m", 0.20))
 
     def unpack(params: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         delta_xy = params[: 2 * n].reshape(n, 2)
@@ -65,28 +66,52 @@ def optimize_anchors(train_df: pd.DataFrame, config: dict) -> dict[str, Any]:
             bias = prior_bias.copy()
         return prior_xy + delta_xy, bias
 
-    def residuals(params: np.ndarray) -> np.ndarray:
+    def objective(params: np.ndarray) -> float:
         xy, bias = unpack(params)
-        measurement_residuals = []
+        total_loss = 0.0
         for idx in range(n):
             geom = np.hypot(gt[:, 0] - xy[idx, 0], gt[:, 1] - xy[idx, 1]) + bias[idx]
-            measurement_residuals.append(geom - ranges[:, idx])
-        res = np.concatenate(measurement_residuals)
+            res = geom - ranges[:, idx]
+            if opt_cfg.get("loss", "soft_l1") == "soft_l1":
+                scaled = res / max(loss_scale, 1e-9)
+                total_loss += float(np.mean(2.0 * (np.sqrt(1.0 + scaled**2) - 1.0) * loss_scale**2))
+            else:
+                total_loss += float(np.mean(res**2))
         delta_xy = (xy - prior_xy).ravel() / max(move_reg, 1e-9)
-        reg = [delta_xy]
+        reg_terms = [delta_xy]
         if optimize_bias:
-            reg.append((bias - prior_bias) / max(bias_reg, 1e-9))
-        return np.concatenate([res, *reg])
+            reg_terms.append((bias - prior_bias) / max(bias_reg, 1e-9))
+        reg = np.concatenate(reg_terms)
+        return total_loss / n + reg_weight * float(np.mean(reg**2))
 
-    result = least_squares(residuals, p0, bounds=(lower, upper), loss=opt_cfg.get("loss", "soft_l1"))
-    optimized_xy, optimized_bias = unpack(result.x)
+    best_cost = objective(params)
+    steps = initial_steps.copy()
+    passes = 0
+    while float(np.max(steps)) >= min_step and passes < max_passes:
+        improved = False
+        for idx in range(len(params)):
+            for direction in (1.0, -1.0):
+                trial = params.copy()
+                trial[idx] = float(np.clip(trial[idx] + direction * steps[idx], lower[idx], upper[idx]))
+                if abs(trial[idx] - params[idx]) <= 1e-12:
+                    continue
+                cost = objective(trial)
+                if cost + 1e-12 < best_cost:
+                    params = trial
+                    best_cost = cost
+                    improved = True
+        if not improved:
+            steps *= 0.5
+        passes += 1
+
+    optimized_xy, optimized_bias = unpack(params)
 
     optimized: dict[str, Any] = {
         "enabled": True,
-        "source": "least_squares_train_split",
-        "cost": float(result.cost),
-        "success": bool(result.success),
-        "message": str(result.message),
+        "source": "coordinate_search_train_split",
+        "cost": float(best_cost),
+        "success": True,
+        "message": f"coordinate search completed in {passes} passes",
         "anchors": {},
     }
     for idx, anchor_id in enumerate(anchor_ids):
@@ -105,4 +130,3 @@ def optimize_anchors(train_df: pd.DataFrame, config: dict) -> dict[str, Any]:
 
 def save_optimized_anchors(anchors: dict[str, Any], out_path: str | Path) -> None:
     save_json(anchors, out_path)
-

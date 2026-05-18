@@ -12,6 +12,17 @@ from .config import anchor_ids, resolve_path, save_json
 
 STANDARD_REQUIRED = ["gt_x", "gt_y"]
 
+DEFAULT_PRESERVED_COLUMNS = [
+    "gt_loop_id",
+    "gt_segment",
+    "gt_segment_start_s",
+    "gt_segment_end_s",
+    "gt_segment_progress",
+    "gt_source",
+    "loop_count_assumption",
+    "source_raw_file",
+]
+
 
 def _as_candidates(value: Any) -> list[str]:
     if value is None:
@@ -97,10 +108,16 @@ def normalize_track(path: str | Path, config: dict) -> pd.DataFrame:
             rename_map[source_y] = std_y
 
     normalized = raw.rename(columns=rename_map)
-    keep_cols = sorted(set(rename_map.values()))
+    preserve_cols = config.get("data", {}).get("preserve_columns", DEFAULT_PRESERVED_COLUMNS)
+    keep_cols = set(rename_map.values())
+    for col in preserve_cols:
+        if col in normalized.columns:
+            keep_cols.add(col)
+    keep_cols = sorted(keep_cols)
     normalized = normalized[keep_cols].copy()
 
-    numeric_cols = [col for col in normalized.columns if col not in {"source_file", "trajectory"}]
+    string_cols = {"source_file", "trajectory", "gt_segment", "gt_source", "source_raw_file"}
+    numeric_cols = [col for col in normalized.columns if col not in string_cols]
     for col in numeric_cols:
         normalized[col] = pd.to_numeric(normalized[col], errors="coerce")
 

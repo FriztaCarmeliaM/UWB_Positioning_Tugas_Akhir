@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from .preprocessing import preferred_range_column
+
 
 TARGET_COLS = ["residual_x", "residual_y"]
 
@@ -42,7 +44,7 @@ def build_feature_table(df: pd.DataFrame, anchor_ids: list[str]) -> tuple[pd.Dat
     ]
 
     for anchor_id in anchor_ids:
-        range_col = f"range_cal_{anchor_id}" if f"range_cal_{anchor_id}" in table.columns else f"range_{anchor_id}"
+        range_col = preferred_range_column(table, anchor_id)
         table[f"feature_range_{anchor_id}"] = table[range_col]
         feature_cols.append(f"feature_range_{anchor_id}")
         innov_col = f"innov_{anchor_id}"

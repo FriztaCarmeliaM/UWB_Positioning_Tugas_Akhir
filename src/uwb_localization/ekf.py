@@ -6,6 +6,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .preprocessing import preferred_range_column
+
 
 @dataclass
 class EKFParams:
@@ -36,11 +38,7 @@ def ekf_params_from_config(config: dict[str, Any]) -> EKFParams:
 
 
 def measurement_column(df: pd.DataFrame, anchor_id: str) -> str:
-    if f"range_cal_{anchor_id}" in df.columns:
-        return f"range_cal_{anchor_id}"
-    if f"range_{anchor_id}" in df.columns:
-        return f"range_{anchor_id}"
-    raise ValueError(f"Missing range column for anchor {anchor_id}.")
+    return preferred_range_column(df, anchor_id)
 
 
 def _initial_position(row: pd.Series, anchors: dict[str, dict[str, float]]) -> tuple[float, float]:
@@ -60,19 +58,25 @@ def _least_squares_trilateration(row: pd.Series, anchors: dict[str, dict[str, fl
         return float(first["x"]), float(first["y"])
 
     a0 = anchors[anchor_ids[0]]
-    d0 = float(row.get(f"range_cal_{anchor_ids[0]}", row.get(f"range_{anchor_ids[0]}")))
+    d0 = float(row.get(preferred_range_column(pd.DataFrame([row]), anchor_ids[0])))
     rows = []
     rhs = []
     for anchor_id in anchor_ids[1:]:
         ai = anchors[anchor_id]
-        di = float(row.get(f"range_cal_{anchor_id}", row.get(f"range_{anchor_id}")))
+        di = float(row.get(preferred_range_column(pd.DataFrame([row]), anchor_id)))
         rows.append([2 * (ai["x"] - a0["x"]), 2 * (ai["y"] - a0["y"])])
         rhs.append(d0**2 - di**2 - a0["x"] ** 2 + ai["x"] ** 2 - a0["y"] ** 2 + ai["y"] ** 2)
-    try:
-        xy, *_ = np.linalg.lstsq(np.asarray(rows, dtype=float), np.asarray(rhs, dtype=float), rcond=None)
-        return float(xy[0]), float(xy[1])
-    except np.linalg.LinAlgError:
+    ata_00 = sum(float(r[0]) * float(r[0]) for r in rows)
+    ata_01 = sum(float(r[0]) * float(r[1]) for r in rows)
+    ata_11 = sum(float(r[1]) * float(r[1]) for r in rows)
+    atb_0 = sum(float(r[0]) * float(b) for r, b in zip(rows, rhs))
+    atb_1 = sum(float(r[1]) * float(b) for r, b in zip(rows, rhs))
+    det = ata_00 * ata_11 - ata_01 * ata_01
+    if abs(det) <= 1e-12:
         return float(a0["x"]), float(a0["y"])
+    x = (atb_0 * ata_11 - ata_01 * atb_1) / det
+    y = (ata_00 * atb_1 - atb_0 * ata_01) / det
+    return float(x), float(y)
 
 
 def _process_noise(dt: float, accel_noise: float) -> np.ndarray:
@@ -89,16 +93,54 @@ def _process_noise(dt: float, accel_noise: float) -> np.ndarray:
 
 
 def _predict(state: np.ndarray, cov: np.ndarray, dt: float, params: EKFParams) -> tuple[np.ndarray, np.ndarray]:
-    f = np.array(
-        [
-            [1.0, 0.0, dt, 0.0],
-            [0.0, 1.0, 0.0, dt],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ],
-        dtype=float,
-    )
-    return f @ state, f @ cov @ f.T + _process_noise(dt, params.process_noise_accel)
+    f = [
+        [1.0, 0.0, dt, 0.0],
+        [0.0, 1.0, 0.0, dt],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    predicted_state = np.zeros_like(state)
+    for i in range(4):
+        predicted_state[i] = sum(f[i][j] * state[j] for j in range(4))
+
+    predicted_cov = np.zeros_like(cov)
+    for i in range(4):
+        for j in range(4):
+            value = 0.0
+            for m in range(4):
+                for n in range(4):
+                    value += f[i][m] * cov[m, n] * f[j][n]
+            predicted_cov[i, j] = value
+    predicted_cov += _process_noise(dt, params.process_noise_accel)
+    return predicted_state, predicted_cov
+
+
+def _quad_form(row: np.ndarray, cov: np.ndarray) -> float:
+    value = 0.0
+    for i in range(len(row)):
+        for j in range(len(row)):
+            value += float(row[i]) * float(cov[i, j]) * float(row[j])
+    return value
+
+
+def _cov_times_row(cov: np.ndarray, row: np.ndarray) -> np.ndarray:
+    result = np.zeros(cov.shape[0], dtype=float)
+    for i in range(cov.shape[0]):
+        result[i] = sum(float(cov[i, j]) * float(row[j]) for j in range(cov.shape[1]))
+    return result
+
+
+def _cov_update(cov: np.ndarray, kalman_gain: np.ndarray, h_row: np.ndarray) -> np.ndarray:
+    hp = np.zeros(cov.shape[1], dtype=float)
+    for j in range(cov.shape[1]):
+        hp[j] = sum(float(h_row[m]) * float(cov[m, j]) for m in range(cov.shape[0]))
+
+    updated = cov.copy()
+    for i in range(cov.shape[0]):
+        for j in range(cov.shape[1]):
+            updated[i, j] = cov[i, j] - kalman_gain[i] * hp[j]
+
+    return (updated + updated.T) * 0.5
 
 
 def _measurement_model(
@@ -135,30 +177,35 @@ def _update(
     normalized = np.zeros(len(anchor_ids), dtype=float)
     if params.enable_gating:
         for i in range(len(anchor_ids)):
-            s_i = float((h_jac[i : i + 1] @ cov @ h_jac[i : i + 1].T)[0, 0] + r_diag[i])
+            s_i = float(_quad_form(h_jac[i], cov) + r_diag[i])
             normalized[i] = float(innovation[i] ** 2 / max(s_i, 1e-12))
             keep[i] = normalized[i] <= params.gating_threshold
 
     if int(keep.sum()) < params.min_valid_anchors:
         return state, cov, {
-            "innovation_norm": float(np.linalg.norm(innovation)),
+            "innovation_norm": float(np.sqrt(np.sum(innovation**2))),
             "valid_anchor_count": float(keep.sum()),
             "rejected_anchor_count": float(len(anchor_ids) - keep.sum()),
             "updated": 0.0,
             **{f"innov_{anchor_ids[i]}": float(innovation[i]) for i in range(len(anchor_ids))},
         }
 
-    h_keep = h_jac[keep]
     innovation_keep = innovation[keep]
-    r_keep = np.diag(r_diag[keep])
-    s = h_keep @ cov @ h_keep.T + r_keep
-    k = cov @ h_keep.T @ np.linalg.inv(s)
-    state = state + k @ innovation_keep
-    identity = np.eye(len(state))
-    cov = (identity - k @ h_keep) @ cov @ (identity - k @ h_keep).T + k @ r_keep @ k.T
+    kept_indices = np.flatnonzero(keep)
+    for original_index in kept_indices:
+        anchor_id = anchor_ids[int(original_index)]
+        h_single, h_single_jac = _measurement_model(state, anchors, [anchor_id])
+        measurement_residual = float(z[int(original_index)] - h_single[0])
+        h_row = h_single_jac[0]
+        s_scalar = float(_quad_form(h_row, cov) + r_diag[int(original_index)])
+        if s_scalar <= 1e-12:
+            continue
+        kalman_gain = _cov_times_row(cov, h_row) / s_scalar
+        state = state + kalman_gain * measurement_residual
+        cov = _cov_update(cov, kalman_gain, h_row)
 
     return state, cov, {
-        "innovation_norm": float(np.linalg.norm(innovation_keep)),
+        "innovation_norm": float(np.sqrt(np.sum(innovation_keep**2))),
         "valid_anchor_count": float(keep.sum()),
         "rejected_anchor_count": float(len(anchor_ids) - keep.sum()),
         "updated": 1.0,

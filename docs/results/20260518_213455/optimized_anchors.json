@@ -1,0 +1,39 @@
+{
+  "enabled": true,
+  "source": "coordinate_search_train_split",
+  "cost": 0.014825648326955656,
+  "success": true,
+  "message": "coordinate search completed in 24 passes",
+  "anchors": {
+    "1": {
+      "x": 2.194228515625,
+      "y": 4.605419921875,
+      "bias": 0.00048828125,
+      "prior_x": 2.26,
+      "prior_y": 4.6,
+      "prior_bias": 0.0,
+      "delta_x": -0.06577148437499991,
+      "delta_y": 0.005419921875000178
+    },
+    "2": {
+      "x": 0.006884765625,
+      "y": -0.009521484375,
+      "bias": -0.00146484375,
+      "prior_x": 0.0,
+      "prior_y": 0.0,
+      "prior_bias": 0.0,
+      "delta_x": 0.006884765625,
+      "delta_y": -0.009521484375
+    },
+    "3": {
+      "x": 4.577685546875,
+      "y": 0.03749999999999999,
+      "bias": 0.00146484375,
+      "prior_x": 4.55,
+      "prior_y": 0.0,
+      "prior_bias": 0.0,
+      "delta_x": 0.027685546875000355,
+      "delta_y": 0.03749999999999999
+    }
+  }
+}

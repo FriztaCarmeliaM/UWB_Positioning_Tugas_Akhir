@@ -1,0 +1,31 @@
+{
+  "model": "d_corrected = a * d_raw + b",
+  "fit_split": "train",
+  "method_requested": "huber",
+  "anchors": {
+    "1": {
+      "a": 0.925546381644639,
+      "b": 0.2184663904230142,
+      "method": "huber_numpy",
+      "n_samples": 12212,
+      "rmse_before_m": 0.16586799242166164,
+      "rmse_after_m": 0.15196881002742602
+    },
+    "2": {
+      "a": 0.90667674271897,
+      "b": 0.1443133184927512,
+      "method": "huber_numpy",
+      "n_samples": 12212,
+      "rmse_before_m": 0.21433109634318676,
+      "rmse_after_m": 0.12351154710541866
+    },
+    "3": {
+      "a": 0.9685274996019214,
+      "b": 0.09319094474342338,
+      "method": "huber_numpy",
+      "n_samples": 12212,
+      "rmse_before_m": 0.1610934538247625,
+      "rmse_after_m": 0.15822300857375496
+    }
+  }
+}

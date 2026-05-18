@@ -31,7 +31,34 @@ def position_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]
 
 
 def evaluate_predictions(df: pd.DataFrame) -> pd.DataFrame:
-    methods = [
+    methods = _available_methods(df)
+    rows = []
+    for split in ["train", "val", "test"]:
+        split_df = df[df["split"] == split]
+        if split_df.empty:
+            continue
+        groups = [("__all__", split_df)] + list(split_df.groupby("trajectory", sort=False))
+        for track_name, part in groups:
+            y_true = part[["gt_x", "gt_y"]].to_numpy(dtype=float)
+            for model_name, x_col, y_col, available in methods:
+                if not available:
+                    continue
+                y_pred = part[[x_col, y_col]].to_numpy(dtype=float)
+                row = {
+                    "split": split,
+                    "trajectory": "all" if track_name == "__all__" else track_name,
+                    "model": model_name,
+                    "constraint_enabled": bool(part["constraint_enabled"].any())
+                    if "constraint_enabled" in part.columns
+                    else False,
+                    **position_metrics(y_true, y_pred),
+                }
+                rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _available_methods(df: pd.DataFrame) -> list[tuple[str, str, str, bool]]:
+    return [
         ("Raw trilateration", "raw_x", "raw_y", "raw_x" in df.columns and "raw_y" in df.columns),
         (
             "Legacy position KF",
@@ -48,14 +75,19 @@ def evaluate_predictions(df: pd.DataFrame) -> pd.DataFrame:
             "constraint_x" in df.columns and "constraint_y" in df.columns,
         ),
     ]
+
+
+def evaluate_predictions_by_group(df: pd.DataFrame, group_col: str) -> pd.DataFrame:
+    if group_col not in df.columns:
+        return pd.DataFrame()
+
+    methods = _available_methods(df)
     rows = []
-    group_cols = ["split", "trajectory"]
     for split in ["train", "val", "test"]:
         split_df = df[df["split"] == split]
         if split_df.empty:
             continue
-        groups = [("__all__", split_df)] + list(split_df.groupby("trajectory", sort=False))
-        for track_name, part in groups:
+        for (trajectory, group_value), part in split_df.groupby(["trajectory", group_col], sort=False):
             y_true = part[["gt_x", "gt_y"]].to_numpy(dtype=float)
             for model_name, x_col, y_col, available in methods:
                 if not available:
@@ -63,7 +95,8 @@ def evaluate_predictions(df: pd.DataFrame) -> pd.DataFrame:
                 y_pred = part[[x_col, y_col]].to_numpy(dtype=float)
                 row = {
                     "split": split,
-                    "trajectory": "all" if track_name == "__all__" else track_name,
+                    "trajectory": trajectory,
+                    group_col: group_value,
                     "model": model_name,
                     "constraint_enabled": bool(part["constraint_enabled"].any())
                     if "constraint_enabled" in part.columns

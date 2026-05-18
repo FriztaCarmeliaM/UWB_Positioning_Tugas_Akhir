@@ -11,8 +11,8 @@ START_TIME = time.perf_counter()
 UWB_PORT = "/dev/ttyUSB0"
 UWB_BAUD = 115200
 CSV_FILE = "uwb_data2.csv"
-HEIGHT_DIFF = 1.02  # meter
-SAMPLING_TIME = 0.005 # in seconds (e.g., 0.1 = 100ms)
+HEIGHT_DIFF = 1.11  # meter
+SAMPLING_TIME = 0.05 # in seconds (0.05 = 20 Hz)
 
 uwb_distances = {}   # address -> distance
 uwb_update_time = {} # address -> waktu update
