@@ -52,8 +52,9 @@ Cara membaca hasil utama:
   - [5.1 Split Eksperimen](#51-split-eksperimen)
   - [5.2 Hasil Kalibrasi Range](#52-hasil-kalibrasi-range)
   - [5.3 Hasil Kuantitatif Test Set](#53-hasil-kuantitatif-test-set)
-  - [5.4 Hasil Per Lintasan](#54-hasil-per-lintasan)
-  - [5.5 Visualisasi](#55-visualisasi)
+  - [5.4 Catatan Percobaan Tuning](#54-catatan-percobaan-tuning)
+  - [5.5 Hasil Per Lintasan](#55-hasil-per-lintasan)
+  - [5.6 Visualisasi](#56-visualisasi)
 - [6. Diskusi](#6-diskusi)
   - [6.1 Interpretasi Hasil](#61-interpretasi-hasil)
   - [6.2 Mengapa Target 5 cm Belum Realistis](#62-mengapa-target-5-cm-belum-realistis)
@@ -513,6 +514,8 @@ kesalahan sisa yang masih berulang pada output EKF. Karena test set tetap
 terpisah, penurunan ini dapat dilaporkan sebagai hasil generalisasi pipeline,
 bukan hasil dari kebocoran data.
 
+### 5.4 Catatan Percobaan Tuning
+
 Catatan percobaan tuning sebelum memilih hasil akhir:
 
 | Percobaan | Tujuan | RMSE 2D EKF + LSTM | MAE 2D EKF + LSTM | Catatan |
@@ -532,7 +535,7 @@ menunjukkan bahwa hasil akhir bukan berasal dari satu kali percobaan, tetapi
 dari beberapa evaluasi konfigurasi. Konfigurasi yang dipilih tetap berdasarkan
 test held-out dan tidak menggunakan random split baris.
 
-### 5.4 Hasil Per Lintasan
+### 5.5 Hasil Per Lintasan
 
 | Split | Trajectory | Model Terbaik | RMSE 2D Terbaik |
 | --- | --- | --- | ---: |
@@ -561,7 +564,7 @@ atau di bawah 10 cm pada MAE/median. Error terbesar masih muncul pada bagian
 start/stop dan beberapa segmen yang terkena lonjakan UWB, sehingga RMSE total
 masih tertahan di 11.25 cm.
 
-### 5.5 Visualisasi
+### 5.6 Visualisasi
 
 Gambar berikut ditambahkan sebagai bukti ringkas bahwa hasil terbaru sudah
 sesuai dengan kesepakatan target alternatif: MAE 2D berada di bawah 10 cm,
@@ -575,19 +578,19 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 
 ![Breakdown Error per Segmen](docs/results/20260518_213455/segment_error_breakdown.png)
 
-#### 5.5.1 Perbandingan Metode pada Test Set
+#### 5.6.1 Perbandingan Metode pada Test Set
 
 ![Test Method Comparison](docs/results/20260518_213455/test_method_comparison.png)
 
-#### 5.5.2 CDF Error 2D pada Test Set
+#### 5.6.2 CDF Error 2D pada Test Set
 
 ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png)
 
-#### 5.5.3 Full Trajectory Comparison
+#### 5.6.3 Full Trajectory Comparison
 
 ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png)
 
-#### 5.5.4 Trajectory per Lintasan
+#### 5.6.4 Trajectory per Lintasan
 
 | Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
@@ -597,7 +600,7 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 | --- | --- |
 | ![Trajectory 10lup2](docs/results/20260518_213455/trajectory_10lup2_trilat_gt.png) | ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png) |
 
-#### 5.5.5 Error Over Time per Lintasan
+#### 5.6.5 Error Over Time per Lintasan
 
 | Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
@@ -607,7 +610,7 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 | --- | --- |
 | ![Error Over Time 10lup2](docs/results/20260518_213455/error_over_time_10lup2_trilat_gt.png) | ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png) |
 
-#### 5.5.6 Residual Distribution LSTM
+#### 5.6.6 Residual Distribution LSTM
 
 ![LSTM Residual Distribution](docs/results/20260518_213455/lstm_residual_distribution.png)
 
