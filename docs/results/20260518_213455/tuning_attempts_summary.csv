@@ -1,0 +1,9 @@
+attempt,run_folder,purpose,raw_rmse_2d_cm,ekf_rmse_2d_cm,lstm_rmse_2d_cm,lstm_mae_2d_cm,lstm_below_10cm_pct,summary
+Initial calibrated pipeline,outputs/uwb_calibrated_pipeline/20260507_133727,Pipeline awal dengan ground truth lama dan kalibrasi dasar,99.25,88.09,92.53,84.50,1.03,Error masih sangat besar sehingga ground truth dan split perlu diperbaiki.
+Latest waypoint all-data trial,outputs/uwb_latest_waypoint_pipeline/20260518_211329,Percobaan setelah ground truth waypoint terbaru dengan semua dataset,27.48,25.44,29.56,24.65,12.02,LSTM belum membantu karena data 5-loop dan catatan timestamp belum cukup detail.
+10-loop final baseline,outputs/uwb_10loop_final_pipeline/20260518_212851,Fokus ke data 10-loop dengan split test terpisah,24.95,17.17,12.04,10.16,55.58,Hasil membaik tetapi MAE masih sedikit di atas 10 cm.
+Under-10 candidate trial,outputs/uwb_under10_candidate_pipeline/20260523_101408,Percobaan tuning kandidat target di bawah 10 cm,24.95,17.82,15.97,12.82,47.73,Tuning ini tidak dipakai karena performa test memburuk.
+Sequence window 10 trial,outputs/uwb_10loop_seq10_pipeline/20260523_103647,Percobaan sequence LSTM lebih pendek,24.92,17.13,12.44,10.72,50.24,Sequence lebih pendek tidak menurunkan error.
+Seed 7 trial,outputs/uwb_10loop_seed7_pipeline/20260523_103309,Percobaan random seed berbeda,24.95,17.14,11.54,9.75,56.90,Hasil mendekati final tetapi masih lebih buruk dari run terbaik.
+No anchor optimization trial,outputs/uwb_10loop_noanchoropt_pipeline/20260523_104357,Percobaan tanpa optimasi anchor,24.95,18.10,11.56,9.78,57.92,Tanpa optimasi anchor error EKF dan LSTM sedikit lebih buruk.
+Final selected run,outputs/uwb_10loop_moretrain_pipeline/20260518_213455,Konfigurasi utama dengan data 10-loop train lebih banyak,24.95,17.14,11.25,9.50,59.05,Run terbaik yang dipakai sebagai hasil utama README.

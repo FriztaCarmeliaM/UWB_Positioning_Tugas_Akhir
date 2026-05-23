@@ -513,6 +513,25 @@ kesalahan sisa yang masih berulang pada output EKF. Karena test set tetap
 terpisah, penurunan ini dapat dilaporkan sebagai hasil generalisasi pipeline,
 bukan hasil dari kebocoran data.
 
+Catatan percobaan tuning sebelum memilih hasil akhir:
+
+| Percobaan | Tujuan | RMSE 2D EKF + LSTM | MAE 2D EKF + LSTM | Catatan |
+| --- | --- | ---: | ---: | --- |
+| Initial calibrated pipeline | Baseline awal dengan ground truth lama | 92.53 cm | 84.50 cm | Error masih sangat besar, sehingga ground truth dan split perlu diperbaiki |
+| Latest waypoint all-data trial | Ground truth waypoint terbaru dengan semua dataset | 29.56 cm | 24.65 cm | LSTM belum membantu karena data 5-loop dan timestamp belum cukup detail |
+| 10-loop final baseline | Fokus ke data 10-loop dan test terpisah | 12.04 cm | 10.16 cm | Hasil membaik, tetapi MAE masih sedikit di atas 10 cm |
+| Under-10 candidate trial | Percobaan tuning kandidat target di bawah 10 cm | 15.97 cm | 12.82 cm | Tidak dipakai karena performa test memburuk |
+| Sequence window 10 trial | Percobaan sequence LSTM lebih pendek | 12.44 cm | 10.72 cm | Sequence lebih pendek tidak menurunkan error |
+| Seed 7 trial | Percobaan random seed berbeda | 11.54 cm | 9.75 cm | Mendekati final, tetapi masih lebih buruk dari run terbaik |
+| No anchor optimization trial | Percobaan tanpa optimasi anchor | 11.56 cm | 9.78 cm | Tanpa optimasi anchor error sedikit lebih buruk |
+| Final selected run | Konfigurasi utama 10-loop more-train | **11.25 cm** | **9.50 cm** | Dipilih sebagai hasil utama karena paling baik pada test held-out |
+
+Ringkasan percobaan tersebut disimpan di
+`docs/results/20260518_213455/tuning_attempts_summary.csv`. Catatan ini
+menunjukkan bahwa hasil akhir bukan berasal dari satu kali percobaan, tetapi
+dari beberapa evaluasi konfigurasi. Konfigurasi yang dipilih tetap berdasarkan
+test held-out dan tidak menggunakan random split baris.
+
 ### 5.4 Hasil Per Lintasan
 
 | Split | Trajectory | Model Terbaik | RMSE 2D Terbaik |
