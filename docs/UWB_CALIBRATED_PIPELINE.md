@@ -5,6 +5,19 @@ agar eksperimen lebih reproducible, modular, dan bebas data leakage. Pipeline
 ini tidak menghapus script lama; semua implementasi baru berada di `src/`,
 `scripts/`, dan `configs/`.
 
+Dokumen ini mengikuti konfigurasi hasil terbaru:
+
+```text
+configs/uwb_pipeline_10loop_moretrain.yaml
+outputs/uwb_10loop_moretrain_pipeline/20260518_213455/
+docs/results/20260518_213455/
+```
+
+Hasil utama pada test held-out `10lup2_trilat_gt` adalah RMSE 2D 11.25 cm dan
+MAE 2D 9.50 cm untuk metode EKF + LSTM residual. Artinya, target alternatif di
+bawah 10 cm sudah terpenuhi pada metrik MAE 2D, sedangkan RMSE 2D masih perlu
+dilaporkan apa adanya.
+
 ## 1. Mengapa Pipeline Baru Dibuat
 
 Script LSTM awal berpotensi menghasilkan performa terlalu tinggi karena beberapa
@@ -41,11 +54,34 @@ Penjelasan singkat Bahasa Indonesia:
 > terkontrol dan metrik utamanya adalah RMSE Euclidean 2D. Jika hanya RMSE X
 > atau RMSE Y yang kecil, belum tentu posisi 2D benar-benar akurat di bawah 5 cm.
 
+Pada hasil 10-loop terbaru, target 5 cm belum tercapai. Jika target alternatif
+yang diminta adalah di bawah 10 cm, klaim yang dapat dipertanggungjawabkan
+adalah **MAE 2D = 9.50 cm** pada test held-out. RMSE 2D masih **11.25 cm** karena
+RMSE lebih sensitif terhadap beberapa spike dan loop dengan error besar.
+Keduanya perlu ditulis eksplisit agar klaim hasil tidak rancu.
+
+Track record penurunan error pada test set:
+
+| Tahap | RMSE 2D | MAE 2D | Penjelasan |
+| --- | ---: | ---: | --- |
+| Raw trilateration | 24.95 cm | 21.93 cm | Posisi langsung dari trilaterasi range datar |
+| EKF only | 17.14 cm | 15.20 cm | Range sudah dikalibrasi dan posisi distabilkan model gerak |
+| EKF + LSTM residual | 11.25 cm | **9.50 cm** | LSTM mengoreksi residual yang tersisa dari output EKF |
+
+Gambar bukti ringkas tersedia di:
+
+```text
+docs/results/20260518_213455/target_10cm_evidence.png
+docs/results/20260518_213455/segment_error_breakdown.png
+```
+
 ## 3. Struktur Implementasi Baru
 
 ```text
 configs/
-  uwb_pipeline.yaml
+  uwb_pipeline_latest.yaml
+  uwb_pipeline_10loop_final.yaml
+  uwb_pipeline_10loop_moretrain.yaml
 
 src/uwb_localization/
   data.py
@@ -61,9 +97,11 @@ src/uwb_localization/
   config.py
 
 scripts/
+  00_make_waypoint_ground_truth.py
   01_prepare_dataset.py
   02_calibrate_ranges.py
   03_optimize_anchors.py
+  04_tune_ekf.py
   04_run_ekf.py
   05_train_lstm_residual.py
   06_evaluate_pipeline.py
@@ -72,12 +110,40 @@ scripts/
 
 ## 4. Tahapan Pipeline
 
+### 4.0 Waypoint Ground Truth
+
+Script:
+
+```bash
+python scripts/00_make_waypoint_ground_truth.py --manual-times configs/latest_waypoint_times.yaml
+```
+
+Fungsi:
+
+- Membaca catatan waktu waypoint dari `configs/latest_waypoint_times.yaml`.
+- Membentuk ground truth `gt_x` dan `gt_y` dari waypoint fisik lintasan.
+- Untuk data 10-loop, timestamp waypoint digunakan per titik lintasan sehingga
+  interpolasi ground truth dilakukan per segmen.
+- Untuk data 5-loop, catatan waktunya hanya awal dan akhir gerak sehingga hasil
+  ground truth kurang detail dibanding 10-loop.
+
+Output:
+
+```text
+Data eksperimen/latest_waypoint_ground_truth/
+  10lup_trilat_gt.csv
+  10lup1_trilat_gt.csv
+  10lup2_trilat_gt.csv
+  trilat5lup_gt.csv
+  trilat5lup1_gt.csv
+```
+
 ### 4.1 Prepare Dataset
 
 Script:
 
 ```bash
-python scripts/01_prepare_dataset.py --config configs/uwb_pipeline.yaml
+python scripts/01_prepare_dataset.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
@@ -92,7 +158,7 @@ Fungsi:
 Output:
 
 ```text
-outputs/uwb_calibrated_pipeline/<timestamp>/01_prepared/
+outputs/uwb_10loop_moretrain_pipeline/<timestamp>/01_prepared/
   all_samples.csv
   split_manifest.csv
   schema.json
@@ -103,7 +169,7 @@ outputs/uwb_calibrated_pipeline/<timestamp>/01_prepared/
 Script:
 
 ```bash
-python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline.yaml
+python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
@@ -117,6 +183,8 @@ d_corrected = a * d_raw + b
 - Ground truth distance dihitung dari posisi tag ground truth dan posisi anchor.
 - Parameter hanya di-fit pada train split.
 - Parameter kemudian diterapkan ke train, validation, test, dan full dataset.
+- Range utama yang digunakan adalah `el1`, `el2`, dan `el3`, yaitu jarak datar
+  hasil koreksi dari pembacaan UWB miring `d1`, `d2`, dan `d3`.
 
 Output:
 
@@ -134,7 +202,7 @@ Output:
 Script:
 
 ```bash
-python scripts/03_optimize_anchors.py --config configs/uwb_pipeline.yaml
+python scripts/03_optimize_anchors.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
@@ -156,11 +224,15 @@ Output:
 Script:
 
 ```bash
-python scripts/04_run_ekf.py --config configs/uwb_pipeline.yaml
+python scripts/04_tune_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/04_run_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
 
+- `04_tune_ekf.py` mencari kombinasi parameter EKF terbaik menggunakan
+  validation split.
+- `04_run_ekf.py` menjalankan EKF final memakai parameter hasil tuning.
 - Menjalankan EKF langsung dari UWB ranges, bukan smoothing posisi x-y lama.
 - State:
 
@@ -193,7 +265,7 @@ Output:
 Script:
 
 ```bash
-python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline.yaml
+python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
@@ -231,7 +303,7 @@ Output:
 Script:
 
 ```bash
-python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline.yaml
+python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Fungsi:
@@ -273,7 +345,7 @@ Output:
 Script:
 
 ```bash
-python scripts/07_plot_results.py --config configs/uwb_pipeline.yaml
+python scripts/07_plot_results.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Plot yang dihasilkan:
@@ -283,6 +355,8 @@ Plot yang dihasilkan:
 - Error over time.
 - CDF of 2D error.
 - Bar chart method comparison.
+- Bukti target alternatif 10 cm.
+- Breakdown error per segmen test.
 - Residual distribution.
 
 Output:
@@ -294,6 +368,8 @@ Output:
   error_over_time_<track>.png
   test_error_cdf.png
   test_method_comparison.png
+  target_10cm_evidence.png
+  segment_error_breakdown.png
   lstm_residual_distribution.png
 ```
 
@@ -302,59 +378,57 @@ Output:
 Aktifkan environment:
 
 ```bash
-conda activate tensor
+conda activate uwb-ta
 ```
 
-Jika environment `tensor` sudah ada dari eksperimen sebelumnya, pastikan
-dependency pipeline baru tersedia:
+Jika environment belum lengkap, install dependency utama:
 
 ```bash
-conda install -n tensor -c conda-forge pyyaml scipy joblib -y
+conda install -n uwb-ta -c conda-forge numpy pandas scipy scikit-learn matplotlib joblib pyyaml tensorflow=2.19.1 pyserial pillow -y
 ```
 
 Alternatifnya, buat ulang environment dari file:
 
 ```bash
-conda env update -n tensor -f environment.yml
+conda env update -n uwb-ta -f environment.yml
 ```
 
 Jalankan stage satu per satu:
 
 ```bash
-python scripts/01_prepare_dataset.py --config configs/uwb_pipeline.yaml
-python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline.yaml
-python scripts/03_optimize_anchors.py --config configs/uwb_pipeline.yaml
-python scripts/04_run_ekf.py --config configs/uwb_pipeline.yaml
-python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline.yaml
-python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline.yaml
-python scripts/07_plot_results.py --config configs/uwb_pipeline.yaml
+python scripts/00_make_waypoint_ground_truth.py --manual-times configs/latest_waypoint_times.yaml
+python scripts/01_prepare_dataset.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/02_calibrate_ranges.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/03_optimize_anchors.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/04_tune_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/04_run_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/05_train_lstm_residual.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline_10loop_moretrain.yaml
+python scripts/07_plot_results.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
 Stage pertama membuat folder timestamp baru di:
 
 ```text
-outputs/uwb_calibrated_pipeline/<timestamp>/
+outputs/uwb_10loop_moretrain_pipeline/<timestamp>/
 ```
 
-Config default menggunakan test track `kotak 3 loop` sebagai lintasan yang
-benar-benar held-out. Validation dibuat dari tail tiap train trajectory agar
-validation tetap memiliki contoh gerak dinamis tanpa mengambil data test.
-
-Anchor optimization default dibuat `enabled: false` karena pada dataset awal
-optimasi anchor dapat bergerak sampai batas maksimum, yang merupakan indikasi
-overfit terhadap train split. Jika ingin mengaktifkannya, turunkan batas gerak
-anchor dan laporkan konfigurasi anchor teroptimasi secara eksplisit.
+Config terbaru menggunakan `10lup2_trilat_gt` sebagai test held-out. Validation
+dibuat dari sebagian akhir data train sehingga tuning tetap tidak melihat test
+set. Anchor optimization pada config ini aktif, tetapi dibatasi oleh
+`max_anchor_move_m` agar koreksi posisi anchor tidak berubah terlalu jauh dari
+pengukuran manual.
 
 Stage berikutnya otomatis membaca run terbaru melalui:
 
 ```text
-outputs/uwb_calibrated_pipeline/latest_run.txt
+outputs/uwb_10loop_moretrain_pipeline/latest_run.txt
 ```
 
 Jika ingin memakai run tertentu:
 
 ```bash
-python scripts/04_run_ekf.py --config configs/uwb_pipeline.yaml --run-dir outputs/uwb_calibrated_pipeline/<timestamp>
+python scripts/04_run_ekf.py --config configs/uwb_pipeline_10loop_moretrain.yaml --run-dir outputs/uwb_10loop_moretrain_pipeline/<timestamp>
 ```
 
 ## 6. Cara Melaporkan di TA
@@ -366,7 +440,11 @@ Narasi yang aman:
 > position dan bias kemudian dapat dioptimasi menggunakan nonlinear least
 > squares pada train split. LSTM digunakan sebagai residual corrector terhadap
 > output EKF, bukan sebagai estimator posisi absolut. Seluruh scaler, kalibrasi,
-> optimasi anchor, dan training LSTM dilakukan tanpa menggunakan test set.
+> optimasi anchor, dan training LSTM dilakukan tanpa menggunakan test set. Pada
+> test set terpisah, EKF + LSTM residual menghasilkan RMSE 2D 11.25 cm dan MAE
+> 2D 9.50 cm. Dengan demikian, target alternatif di bawah 10 cm tercapai pada
+> metrik MAE 2D, sedangkan RMSE 2D masih di atas 10 cm karena dipengaruhi
+> spike/lonjakan.
 
 Narasi yang harus dihindari:
 
@@ -382,7 +460,7 @@ eksperimen memang diketahui, misalnya lintasan rectangle dengan batas `x_min`,
 `x_max`, `y_min`, dan `y_max`. Hasil constraint harus dilaporkan terpisah dari
 hasil unconstrained.
 
-Di config default:
+Di config terbaru:
 
 ```yaml
 constraint:

@@ -10,9 +10,22 @@ plotting.
 **Status hasil terbaru:** konfigurasi terbaik yang paling layak dijadikan hasil
 utama adalah eksperimen 10-loop dengan train/test terpisah. Pada test set
 `10lup2_trilat_gt`, metode **EKF + LSTM residual** menurunkan RMSE 2D dari raw
-trilateration sebesar **24.95 cm** menjadi **11.25 cm**. Target error 5 cm belum
-tercapai secara valid, tetapi pipeline sudah menunjukkan peningkatan yang jelas
-dan evaluasinya dilakukan tanpa data leakage.
+trilateration sebesar **24.95 cm** menjadi **11.25 cm**, serta menghasilkan
+**MAE 2D sebesar 9.50 cm**. Dengan demikian, target alternatif di bawah 10 cm
+sudah tercapai jika metrik yang digunakan adalah rata-rata error/MAE 2D,
+sedangkan RMSE 2D masih 11.25 cm karena lebih sensitif terhadap beberapa spike
+dan loop dengan error besar. Evaluasi dilakukan tanpa data leakage.
+
+Cara membaca hasil utama:
+
+1. **RMSE 2D** adalah metrik konservatif karena memberi penalti lebih besar
+   pada error/lonjakan besar.
+2. **MAE 2D** adalah rata-rata error posisi per sampel.
+3. Klaim "di bawah 10 cm" pada hasil terbaru merujuk pada **MAE 2D = 9.50
+   cm** di test set terpisah, bukan RMSE 2D.
+4. Seluruh angka utama di README ini berasal dari snapshot
+   `docs/results/20260518_213455/`, terutama file `metrics.csv` dan
+   `segment_metrics.csv`.
 
 ---
 
@@ -66,9 +79,10 @@ scaler, sequence window, tuning EKF, dan training model LSTM.
 
 Hasil terbaru menunjukkan bahwa raw trilateration masih memiliki error test
 sekitar 24.95 cm RMSE 2D. Setelah diproses menggunakan EKF dan LSTM residual
-correction, error test turun menjadi 11.25 cm RMSE 2D. Hasil ini menunjukkan
-bahwa metode yang digunakan mampu memperbaiki estimasi posisi secara signifikan,
-meskipun target 5 cm belum tercapai secara valid pada dataset saat ini.
+correction, error test turun menjadi 11.25 cm RMSE 2D dan 9.50 cm MAE 2D. Hasil
+ini menunjukkan bahwa metode yang digunakan mampu memperbaiki estimasi posisi
+secara signifikan. Target 5 cm belum tercapai secara valid pada dataset saat
+ini, tetapi target alternatif di bawah 10 cm sudah tercapai pada metrik MAE 2D.
 
 ### 1.1 Kata Kunci
 
@@ -120,11 +134,24 @@ Metrik utama harus menggunakan RMSE 2D:
 RMSE_2D = sqrt(mean((x_pred - x_true)^2 + (y_pred - y_true)^2))
 ```
 
-Pada dataset terbaru, hasil terbaik test set adalah 11.25 cm RMSE 2D. Dengan
-demikian, target 5 cm belum dapat diklaim secara valid. Namun, hasil tersebut
-tetap menunjukkan peningkatan yang jelas karena error raw trilateration turun
-dari 24.95 cm menjadi 11.25 cm setelah diproses menggunakan EKF dan LSTM
-residual correction.
+Perbedaan metrik yang digunakan:
+
+```text
+MAE_2D  = rata-rata jarak error setiap sampel
+RMSE_2D = rata-rata kuadrat error, lalu diakar
+```
+
+Jika masih ada beberapa titik yang melonjak jauh dari ground truth, nilai RMSE
+akan naik lebih besar daripada MAE. Karena itu, MAE dapat berada di bawah 10 cm
+walaupun RMSE masih sedikit di atas 10 cm.
+
+Pada dataset terbaru, hasil terbaik test set adalah 11.25 cm RMSE 2D dan 9.50
+cm MAE 2D. Dengan demikian, target 5 cm belum dapat diklaim secara valid. Untuk
+target alternatif di bawah 10 cm, klaim yang paling aman adalah **MAE 2D sudah
+di bawah 10 cm**, sedangkan **RMSE 2D belum di bawah 10 cm**. Perbedaan ini
+terjadi karena RMSE memberi penalti lebih besar pada beberapa spike/lonjakan dan
+loop yang errornya besar, sementara MAE merepresentasikan rata-rata error
+absolut per sampel.
 
 ---
 
@@ -164,6 +191,18 @@ Koordinat anchor yang digunakan:
 Pipeline EKF menggunakan `el1`, `el2`, dan `el3` sebagai input range karena EKF
 2D memodelkan jarak datar antara tag dan anchor. Nilai `el` berasal dari
 koreksi Pythagoras terhadap pembacaan UWB miring dengan selisih tinggi perangkat.
+
+Alur pembacaan data yang digunakan:
+
+1. Sensor UWB membaca jarak miring `d1`, `d2`, dan `d3`.
+2. Karena tag dan anchor memiliki beda tinggi, jarak miring dikoreksi menjadi
+   jarak datar `el1`, `el2`, dan `el3`.
+3. Pipeline kalibrasi, EKF, dan LSTM menggunakan `el1`, `el2`, dan `el3`
+   sebagai range utama.
+4. Kolom `x` dan `y` hasil trilaterasi raw tetap disimpan sebagai pembanding
+   baseline dan fitur tambahan, tetapi bukan ground truth.
+5. Ground truth dibuat dari waypoint fisik dan catatan waktu eksperimen, bukan
+   dari hasil prediksi model.
 
 ### 3.2 Struktur Kode
 
@@ -251,6 +290,12 @@ Strategi split pada konfigurasi terbaik:
 Pendekatan ini menjaga evaluasi tetap no-data-leakage karena test set berasal
 dari sesi pengambilan data terpisah dan tidak ikut dipakai saat training.
 
+Split tidak dilakukan random per baris karena data UWB adalah time-series.
+Jika baris diacak, sampel train dan test bisa berasal dari loop yang sama dan
+berdekatan waktunya. Kondisi tersebut membuat hasil terlihat sangat bagus,
+tetapi tidak membuktikan kemampuan model pada sesi pengambilan data baru yang
+benar-benar terpisah.
+
 ### 4.2 Kalibrasi Range per Anchor
 
 Kalibrasi range dilakukan per anchor menggunakan model linear:
@@ -270,6 +315,11 @@ Preprocessing range yang digunakan:
 2. Pembatasan perubahan range antar-sampel.
 3. Exponential moving average ringan agar data tidak terlalu bergetar.
 
+Tujuan tahap ini bukan memaksa lintasan menjadi persegi ideal, tetapi
+mengurangi pembacaan range yang tidak mungkin secara fisik. Parameter kalibrasi
+dan preprocessing dipelajari dari train split, lalu diterapkan apa adanya ke
+validation dan test.
+
 ### 4.3 Anchor Optimization
 
 Pipeline mendukung anchor optimization untuk mengoreksi kecil posisi anchor dan
@@ -287,6 +337,12 @@ anchor_optimization:
 
 Hasil optimasi anchor tetap dibatasi dan hanya di-fit pada train split. Dengan
 demikian, koreksi anchor tidak menggunakan informasi dari test set.
+
+Tahap ini diperlukan karena posisi anchor hasil pengukuran manual dapat memiliki
+selisih beberapa sentimeter. Jika anchor dibiarkan tanpa koreksi, error tersebut
+akan masuk ke perhitungan range dan posisi. Namun, batas `max_anchor_move_m`
+tetap dipasang agar optimasi tidak menggeser anchor terlalu jauh hanya demi
+menyesuaikan data train.
 
 ### 4.4 Extended Kalman Filter Berbasis Range
 
@@ -323,6 +379,12 @@ Parameter EKF terbaik pada run terbaru:
 | `gating_threshold` | `16.27` |
 | `enable_gating` | `true` |
 
+EKF dipakai sebagai estimator utama karena robot bergerak kontinu, sehingga
+posisi antar-sampel seharusnya tidak berubah terlalu ekstrem. Prediction step
+menjaga gerakan tetap halus, sedangkan update step tetap mengikuti pembacaan
+range UWB. Innovation gating membantu menolak pengukuran yang terlalu jauh dari
+prediksi model gerak.
+
 ### 4.5 LSTM Residual Correction
 
 LSTM tidak memprediksi posisi absolut. LSTM dilatih untuk memprediksi residual
@@ -348,6 +410,12 @@ early stopping, dan test tidak disentuh selama training.
 Untuk mencegah koreksi tidak realistis, residual output di-clip menggunakan
 `residual_clip_m`.
 
+LSTM dibuat sebagai residual corrector agar model tidak belajar ulang seluruh
+posisi dari nol. EKF sudah memberikan estimasi posisi yang stabil, lalu LSTM
+hanya mempelajari pola sisa error yang konsisten, misalnya bias lokal pada
+segmen tertentu. Strategi ini lebih aman daripada meminta LSTM langsung
+memprediksi `x,y` absolut dari data UWB mentah.
+
 ### 4.6 Evaluasi dan Visualisasi
 
 Metrik yang dilaporkan:
@@ -366,6 +434,10 @@ Metrik yang dilaporkan:
 Metrik utama untuk klaim akurasi adalah **RMSE 2D Euclidean**, karena posisi
 robot berada pada bidang 2D dan error harus dihitung dari gabungan error sumbu
 X dan Y.
+
+Untuk target alternatif dari dosen, metrik pendamping yang dilaporkan adalah
+**MAE 2D**. README ini menulis keduanya agar pembaca dapat membedakan hasil
+konservatif RMSE dan rata-rata error MAE secara jelas.
 
 ---
 
@@ -422,8 +494,24 @@ Perbandingan utama:
 | EKF + LSTM residual vs Raw trilateration | 54.91% lebih baik |
 
 Interpretasi utama: LSTM residual correction berhasil memperbaiki output EKF
-pada test set yang tidak digunakan saat training. Namun, error akhir masih
-11.25 cm RMSE 2D, sehingga target 5 cm belum tercapai secara valid.
+pada test set yang tidak digunakan saat training. Error akhir adalah 11.25 cm
+RMSE 2D dan 9.50 cm MAE 2D. Artinya, target 5 cm belum tercapai secara valid,
+tetapi target alternatif di bawah 10 cm sudah tercapai jika dosen menerima MAE
+2D sebagai metrik rata-rata error.
+
+Track record penurunan error sampai target alternatif 10 cm:
+
+| Tahap | Input utama | Fungsi tahap | RMSE 2D | MAE 2D | Status |
+| --- | --- | --- | ---: | ---: | --- |
+| Raw trilateration | `el1`, `el2`, `el3` langsung | Baseline posisi dari trilaterasi | 24.95 cm | 21.93 cm | Error masih besar |
+| EKF only | Range terkalibrasi + model gerak | Menstabilkan posisi dan menahan spike | 17.14 cm | 15.20 cm | Error turun, belum <10 cm |
+| EKF + LSTM residual | Output EKF + fitur residual | Mengoreksi pola residual EKF | 11.25 cm | **9.50 cm** | MAE sudah <10 cm |
+
+Penurunan error terjadi bertahap. Kalibrasi dan EKF mengurangi error dari
+pembacaan range yang bias dan berisik. LSTM residual kemudian memperbaiki
+kesalahan sisa yang masih berulang pada output EKF. Karena test set tetap
+terpisah, penurunan ini dapat dilaporkan sebagai hasil generalisasi pipeline,
+bukan hasil dari kebocoran data.
 
 ### 5.4 Hasil Per Lintasan
 
@@ -439,7 +527,34 @@ test lebih rendah karena catatan waktunya hanya berupa interval awal-gerak dan
 akhir-gerak, bukan timestamp waypoint yang detail. Oleh karena itu, hasil
 10-loop lebih kuat untuk dijadikan hasil utama.
 
+Breakdown error EKF + LSTM residual pada test set `10lup2_trilat_gt`:
+
+| Segmen Test | RMSE 2D | MAE 2D | Median | P95 | Jumlah Sample |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Start/stop di P1 | 19.56 cm | 18.68 cm | 19.75 cm | 26.86 cm | 169 |
+| P1 ke P2 | 11.50 cm | 9.27 cm | 7.92 cm | 22.33 cm | 1,830 |
+| P2 ke P3 | 10.63 cm | 9.25 cm | 8.67 cm | 18.56 cm | 2,030 |
+| P3 ke P4 | 12.43 cm | 10.51 cm | 9.62 cm | 25.60 cm | 2,108 |
+| P4 ke P1 | 9.03 cm | 8.05 cm | 7.53 cm | 15.25 cm | 1,889 |
+
+Tabel ini menunjukkan bahwa sebagian besar segmen utama sudah berada di sekitar
+atau di bawah 10 cm pada MAE/median. Error terbesar masih muncul pada bagian
+start/stop dan beberapa segmen yang terkena lonjakan UWB, sehingga RMSE total
+masih tertahan di 11.25 cm.
+
 ### 5.5 Visualisasi
+
+Gambar berikut ditambahkan sebagai bukti ringkas bahwa hasil terbaru sudah
+sesuai dengan kesepakatan target alternatif: MAE 2D berada di bawah 10 cm,
+sedangkan RMSE 2D masih dilaporkan apa adanya.
+
+#### Bukti Target Alternatif 10 cm
+
+![Bukti Target Alternatif 10 cm](docs/results/20260518_213455/target_10cm_evidence.png)
+
+#### Breakdown Error per Segmen Test
+
+![Breakdown Error per Segmen](docs/results/20260518_213455/segment_error_breakdown.png)
 
 #### 5.5.1 Perbandingan Metode pada Test Set
 
@@ -487,13 +602,22 @@ Hasil terbaru menunjukkan bahwa pipeline berlapis mampu meningkatkan akurasi
 lokalisasi UWB. Raw trilateration pada test set menghasilkan RMSE 2D sebesar
 24.95 cm. Setelah diproses menggunakan EKF, RMSE 2D turun menjadi 17.14 cm.
 Setelah ditambahkan LSTM residual correction, RMSE 2D turun lagi menjadi 11.25
-cm.
+cm dan MAE 2D menjadi 9.50 cm.
 
 Peningkatan ini menunjukkan bahwa EKF mampu menstabilkan estimasi posisi dari
 range UWB, sedangkan LSTM residual correction mampu mempelajari pola residual
 yang masih tersisa dari output EKF. Karena test set tidak digunakan saat
 training, peningkatan pada test set dapat dianggap sebagai peningkatan
-generalisasi, bukan akibat data leakage.
+generalisasi, bukan akibat data leakage. Klaim di bawah 10 cm perlu ditulis
+spesifik sebagai **MAE 2D 9.50 cm**, bukan RMSE 2D, karena RMSE masih 11.25 cm.
+
+Jika kalimat "error di bawah 10 cm" digunakan di laporan, penulisannya harus
+diperjelas sebagai berikut:
+
+1. **Sudah tercapai untuk MAE 2D:** rata-rata error test adalah 9.50 cm.
+2. **Belum tercapai untuk RMSE 2D:** RMSE test masih 11.25 cm.
+3. **Belum semua titik di bawah 10 cm:** 59.05% sampel test berada di bawah 10
+   cm, sedangkan sisanya masih dipengaruhi spike dan segmen dengan error besar.
 
 ### 6.2 Mengapa Target 5 cm Belum Realistis
 
@@ -520,10 +644,11 @@ Narasi yang paling aman untuk tugas akhir:
 > Pipeline lokalisasi UWB telah dibuat dengan prinsip no-data-leakage melalui
 > pemisahan train, validation, dan test sebelum proses kalibrasi, tuning, dan
 > training. Pada test set terpisah, EKF + LSTM residual correction menurunkan
-> RMSE 2D dari 24.95 cm pada raw trilateration menjadi 11.25 cm. Hasil ini
-> menunjukkan adanya peningkatan akurasi yang signifikan, meskipun target 5 cm
-> belum tercapai karena keterbatasan kualitas range UWB dan presisi ground
-> truth.
+> RMSE 2D dari 24.95 cm pada raw trilateration menjadi 11.25 cm, dan menghasilkan
+> MAE 2D sebesar 9.50 cm. Hasil ini menunjukkan adanya peningkatan akurasi yang
+> signifikan. Target 5 cm belum tercapai, tetapi target alternatif di bawah 10 cm
+> sudah terpenuhi pada metrik MAE 2D. RMSE 2D masih di atas 10 cm karena adanya
+> beberapa spike/lonjakan dan error besar pada loop tertentu.
 
 Narasi yang sebaiknya dihindari:
 
@@ -571,6 +696,35 @@ python scripts/06_evaluate_pipeline.py --config configs/uwb_pipeline_10loop_more
 python scripts/07_plot_results.py --config configs/uwb_pipeline_10loop_moretrain.yaml
 ```
 
+Urutan tersebut harus dijalankan berurutan karena setiap stage membaca output
+dari stage sebelumnya:
+
+| Stage | Script | Fungsi utama | Output yang dipakai stage berikutnya |
+| --- | --- | --- | --- |
+| 0 | `00_make_waypoint_ground_truth.py` | Membentuk ground truth waypoint dari catatan waktu | CSV ground truth |
+| 1 | `01_prepare_dataset.py` | Membaca data dan membuat split train/val/test | Dataset tersplit |
+| 2 | `02_calibrate_ranges.py` | Mengoreksi bias range per anchor | Range terkalibrasi |
+| 3 | `03_optimize_anchors.py` | Koreksi kecil posisi anchor dan bias | Anchor/bias teroptimasi |
+| 4a | `04_tune_ekf.py` | Mencari parameter EKF terbaik memakai validation | Parameter EKF |
+| 4b | `04_run_ekf.py` | Menjalankan EKF pada semua split | Output EKF |
+| 5 | `05_train_lstm_residual.py` | Melatih LSTM residual dari output EKF | Model dan scaler |
+| 6 | `06_evaluate_pipeline.py` | Menghitung metrik test | `metrics.csv` dan prediksi |
+| 7 | `07_plot_results.py` | Membuat gambar laporan | Plot hasil |
+
+Untuk mengecek angka utama setelah pipeline selesai:
+
+```bash
+python -c "import pandas as pd; df=pd.read_csv('outputs/uwb_10loop_moretrain_pipeline/20260518_213455/06_evaluation/metrics.csv'); print(df[(df['split']=='test') & (df['trajectory']=='all')][['model','rmse_2d_m','mae_2d_m','pct_below_10cm']])"
+```
+
+Angka yang dijadikan snapshot README:
+
+```text
+Raw trilateration      RMSE 2D 0.2495 m, MAE 2D 0.2193 m
+EKF only               RMSE 2D 0.1714 m, MAE 2D 0.1520 m
+EKF + LSTM residual    RMSE 2D 0.1125 m, MAE 2D 0.0950 m
+```
+
 ### 7.3 Output Pipeline
 
 Setiap run membuat folder timestamp:
@@ -599,13 +753,16 @@ Output penting:
 Pipeline terbaru sudah memenuhi prinsip no-data-leakage dan memberikan evaluasi
 yang lebih valid. Pada hasil terbaik, metode **EKF + LSTM residual correction**
 menjadi metode terbaik pada test held-out `10lup2_trilat_gt` dengan RMSE 2D
-sebesar **0.1125 m** atau sekitar **11.25 cm**. Hasil ini lebih baik daripada
-raw trilateration sebesar **0.2495 m** dan EKF only sebesar **0.1714 m**.
+sebesar **0.1125 m** atau sekitar **11.25 cm**, serta MAE 2D sebesar **0.0950
+m** atau sekitar **9.50 cm**. Hasil ini lebih baik daripada raw trilateration
+sebesar **0.2495 m** dan EKF only sebesar **0.1714 m**.
 
-Target akurasi 5 cm belum tercapai secara valid untuk dataset saat ini. Namun,
-pipeline yang dibuat sudah menunjukkan peningkatan akurasi yang jelas, dapat
-direproduksi, dan dapat dipertanggungjawabkan karena seluruh proses kalibrasi,
-tuning, training, dan evaluasi dilakukan dengan pemisahan data yang benar.
+Target akurasi 5 cm belum tercapai secara valid untuk dataset saat ini. Target
+alternatif di bawah 10 cm sudah tercapai pada metrik MAE 2D, tetapi belum pada
+RMSE 2D. Pipeline yang dibuat sudah menunjukkan peningkatan akurasi yang jelas,
+dapat direproduksi, dan dapat dipertanggungjawabkan karena seluruh proses
+kalibrasi, tuning, training, dan evaluasi dilakukan dengan pemisahan data yang
+benar.
 
 ---
 
