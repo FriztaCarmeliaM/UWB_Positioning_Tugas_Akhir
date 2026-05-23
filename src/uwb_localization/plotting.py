@@ -104,10 +104,14 @@ def _bounds(series: list[tuple[np.ndarray, np.ndarray]], equal_axis: bool) -> tu
     return x_min, x_max, y_min, y_max
 
 
-def _canvas(width: int = 1100, height: int = 820) -> tuple[Image.Image, ImageDraw.ImageDraw, dict[str, int]]:
+def _canvas(width: int = 1100, height: int = 820, square_plot: bool = False) -> tuple[Image.Image, ImageDraw.ImageDraw, dict[str, int]]:
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
     plot = {"left": 90, "top": 80, "right": width - 40, "bottom": height - 90}
+    if square_plot:
+        side = min(plot["right"] - plot["left"], plot["bottom"] - plot["top"])
+        plot["right"] = plot["left"] + side
+        plot["bottom"] = plot["top"] + side
     return image, draw, plot
 
 
@@ -225,7 +229,7 @@ def plot_trajectory(
 
     line_data = [(label, *_finite_line(part, x_col, y_col), color, width) for label, x_col, y_col, color, width in series]
     bounds = fixed_bounds or _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=True)
-    image, draw, plot = _canvas()
+    image, draw, plot = _canvas(width=900, height=900, square_plot=True)
     _draw_axes(draw, plot, title, labels["x"], labels["y"], bounds, tick_step_x=0.5, tick_step_y=0.5)
     for _, x, y, color, width in line_data:
         _draw_line(draw, x, y, bounds, plot, color, width)
