@@ -680,7 +680,17 @@ Gambar error over time memperlihatkan perubahan error sepanjang waktu. Sumbu X
 adalah waktu pengambilan data, sedangkan sumbu Y adalah error 2D dalam meter.
 Gambar ini membantu melihat bagian mana yang mengalami lonjakan/spike.
 
-#### 5.7.6 Residual Distribution LSTM
+#### 5.7.6 Training dan Validation Loss LSTM
+
+![Training dan Validation Loss LSTM](docs/results/20260518_213455/lstm_training_validation_loss.png)
+
+Gambar ini menunjukkan proses training LSTM residual. Sumbu X adalah epoch,
+sedangkan sumbu Y adalah nilai loss. Garis biru menunjukkan training loss dan
+garis hijau menunjukkan validation loss. Training loss yang turun menunjukkan
+model belajar dari data train, sedangkan validation loss dipakai untuk memilih
+model terbaik dan memantau overfitting.
+
+#### 5.7.7 Residual Distribution LSTM
 
 ![LSTM Residual Distribution](docs/results/20260518_213455/lstm_residual_distribution.png)
 
