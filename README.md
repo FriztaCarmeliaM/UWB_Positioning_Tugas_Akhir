@@ -535,6 +535,14 @@ menunjukkan bahwa hasil akhir bukan berasal dari satu kali percobaan, tetapi
 dari beberapa evaluasi konfigurasi. Konfigurasi yang dipilih tetap berdasarkan
 test held-out dan tidak menggunakan random split baris.
 
+![Perbandingan Sebelum dan Sesudah Tuning](docs/results/20260518_213455/before_after_tuning_comparison.png)
+
+Gambar di atas menunjukkan perubahan hasil dari percobaan awal sampai
+konfigurasi final. Sumbu X menunjukkan tahap percobaan/tuning, sedangkan sumbu Y
+menunjukkan error 2D dalam sentimeter. Garis merah adalah batas target 10 cm.
+Hasil final dipilih karena memiliki RMSE dan MAE paling rendah dibanding
+percobaan sebelumnya.
+
 ### 5.5 Hasil Per Lintasan
 
 | Split | Trajectory | Model Terbaik | RMSE 2D Terbaik |
@@ -574,21 +582,43 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 
 ![Bukti Target Alternatif 10 cm](docs/results/20260518_213455/target_10cm_evidence.png)
 
+Gambar ini merangkum bukti target alternatif. Grafik kiri memakai sumbu X berupa
+metode dan sumbu Y berupa error dalam sentimeter. Grafik kanan memakai sumbu X
+berupa metode dan sumbu Y berupa persentase sampel dengan error di bawah 10 cm.
+Garis merah menunjukkan batas 10 cm.
+
 #### Breakdown Error per Segmen Test
 
 ![Breakdown Error per Segmen](docs/results/20260518_213455/segment_error_breakdown.png)
+
+Gambar ini memperlihatkan error pada setiap segmen lintasan test. Sumbu X
+menunjukkan segmen lintasan, sedangkan sumbu Y menunjukkan error 2D dalam
+sentimeter. Grafik ini dipakai untuk melihat segmen mana yang masih menyumbang
+error besar.
 
 #### 5.6.1 Perbandingan Metode pada Test Set
 
 ![Test Method Comparison](docs/results/20260518_213455/test_method_comparison.png)
 
+Gambar ini membandingkan RMSE 2D setiap metode pada test set. Sumbu X
+menunjukkan model yang dievaluasi, sedangkan sumbu Y menunjukkan RMSE 2D dalam
+meter. Tujuannya untuk memperlihatkan penurunan error dari EKF ke EKF + LSTM.
+
 #### 5.6.2 CDF Error 2D pada Test Set
 
 ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png)
 
+Gambar CDF menunjukkan sebaran error test. Sumbu X adalah besar error 2D dalam
+meter, sedangkan sumbu Y adalah proporsi kumulatif sampel. Kurva yang lebih ke
+kiri berarti metode memiliki error yang lebih kecil.
+
 #### 5.6.3 Full Trajectory Comparison
 
 ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png)
+
+Gambar ini memperlihatkan lintasan keseluruhan semua split. Sumbu X dan Y adalah
+koordinat posisi dalam meter. Garis ground truth digunakan sebagai lintasan
+acuan, lalu dibandingkan dengan raw UWB, EKF, dan EKF + LSTM.
 
 #### 5.6.4 Trajectory per Lintasan
 
@@ -600,6 +630,11 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 | --- | --- |
 | ![Trajectory 10lup2](docs/results/20260518_213455/trajectory_10lup2_trilat_gt.png) | ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png) |
 
+Gambar trajectory per lintasan menunjukkan detail hasil pada masing-masing sesi.
+Sumbu X dan Y adalah koordinat posisi dalam meter. Bagian ini dipakai untuk
+menunjukkan bahwa evaluasi tidak hanya dilihat dari angka tabel, tetapi juga
+dari kecocokan bentuk lintasan terhadap ground truth.
+
 #### 5.6.5 Error Over Time per Lintasan
 
 | Train `10lup` | Train/Validation `10lup1` |
@@ -610,9 +645,18 @@ sedangkan RMSE 2D masih dilaporkan apa adanya.
 | --- | --- |
 | ![Error Over Time 10lup2](docs/results/20260518_213455/error_over_time_10lup2_trilat_gt.png) | ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png) |
 
+Gambar error over time memperlihatkan perubahan error sepanjang waktu. Sumbu X
+adalah waktu pengambilan data, sedangkan sumbu Y adalah error 2D dalam meter.
+Gambar ini membantu melihat bagian mana yang mengalami lonjakan/spike.
+
 #### 5.6.6 Residual Distribution LSTM
 
 ![LSTM Residual Distribution](docs/results/20260518_213455/lstm_residual_distribution.png)
+
+Gambar distribusi residual menunjukkan koreksi yang dipelajari LSTM. Sumbu X
+adalah residual dalam meter, sedangkan sumbu Y adalah jumlah sampel. Distribusi
+ini digunakan untuk melihat apakah koreksi LSTM masih dalam rentang yang masuk
+akal atau terlalu ekstrem.
 
 ---
 

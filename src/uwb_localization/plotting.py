@@ -123,15 +123,38 @@ def _map_point(
     return int(round(px)), int(round(py))
 
 
-def _draw_axes(draw: ImageDraw.ImageDraw, plot: dict[str, int], title: str, x_label: str, y_label: str) -> None:
+def _format_tick(value: float) -> str:
+    if abs(value) >= 100:
+        return f"{value:.0f}"
+    if abs(value) >= 10:
+        return f"{value:.1f}"
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+def _draw_axes(
+    draw: ImageDraw.ImageDraw,
+    plot: dict[str, int],
+    title: str,
+    x_label: str,
+    y_label: str,
+    bounds: tuple[float, float, float, float] | None = None,
+) -> None:
     title_font = _font(20)
     text_font = _font(14)
+    tick_font = _font(11)
     draw.rectangle([plot["left"], plot["top"], plot["right"], plot["bottom"]], outline=COLORS["axis"], width=1)
-    for i in range(1, 5):
+    for i in range(6):
         x = plot["left"] + i * (plot["right"] - plot["left"]) // 5
         y = plot["top"] + i * (plot["bottom"] - plot["top"]) // 5
-        draw.line([(x, plot["top"]), (x, plot["bottom"])], fill=COLORS["grid"])
-        draw.line([(plot["left"], y), (plot["right"], y)], fill=COLORS["grid"])
+        if 0 < i < 5:
+            draw.line([(x, plot["top"]), (x, plot["bottom"])], fill=COLORS["grid"])
+            draw.line([(plot["left"], y), (plot["right"], y)], fill=COLORS["grid"])
+        if bounds is not None:
+            x_min, x_max, y_min, y_max = bounds
+            x_value = x_min + i * (x_max - x_min) / 5
+            y_value = y_max - i * (y_max - y_min) / 5
+            draw.text((x - 18, plot["bottom"] + 8), _format_tick(x_value), fill="#333333", font=tick_font)
+            draw.text((plot["left"] - 55, y - 7), _format_tick(y_value), fill="#333333", font=tick_font)
     draw.text((plot["left"], 28), title, fill="#111111", font=title_font)
     draw.text(((plot["left"] + plot["right"]) // 2 - 35, plot["bottom"] + 45), x_label, fill="#111111", font=text_font)
     draw.text((18, (plot["top"] + plot["bottom"]) // 2), y_label, fill="#111111", font=text_font)
@@ -178,7 +201,7 @@ def plot_trajectory(part: pd.DataFrame, path: Path, title: str, config: dict) ->
     line_data = [(label, *_finite_line(part, x_col, y_col), color, width) for label, x_col, y_col, color, width in series]
     bounds = _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=True)
     image, draw, plot = _canvas()
-    _draw_axes(draw, plot, title, labels["x"], labels["y"])
+    _draw_axes(draw, plot, title, labels["x"], labels["y"], bounds)
     for _, x, y, color, width in line_data:
         _draw_line(draw, x, y, bounds, plot, color, width)
     _draw_legend(draw, [(label, color) for label, _, _, color, _ in line_data], plot)
@@ -207,7 +230,7 @@ def plot_error_over_time(part: pd.DataFrame, path: Path, title: str, config: dic
 
     bounds = _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=False)
     image, draw, plot = _canvas(width=1100, height=620)
-    _draw_axes(draw, plot, title, labels["time"], labels["error"])
+    _draw_axes(draw, plot, title, labels["time"], labels["error"], bounds)
     for _, x, y, color, width in line_data:
         _draw_line(draw, x, y, bounds, plot, color, width)
     _draw_legend(draw, [(label, color) for label, _, _, color, _ in line_data], plot)
@@ -232,7 +255,7 @@ def plot_error_cdf(df: pd.DataFrame, path: Path, config: dict) -> None:
 
     bounds = _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=False)
     image, draw, plot = _canvas(width=900, height=650)
-    _draw_axes(draw, plot, "2D Error CDF", "2D error (m)", "CDF")
+    _draw_axes(draw, plot, "2D Error CDF", "2D error (m)", "CDF", bounds)
     for _, x, y, color, width in line_data:
         _draw_line(draw, x, y, bounds, plot, color, width)
     _draw_legend(draw, [(label, color) for label, _, _, color, _ in line_data], plot)
@@ -247,9 +270,9 @@ def plot_metric_bars(metrics: pd.DataFrame, path: Path) -> None:
     image = Image.new("RGB", (950, 620), "white")
     draw = ImageDraw.Draw(image)
     plot = {"left": 90, "top": 80, "right": 900, "bottom": 500}
-    _draw_axes(draw, plot, "Method Comparison on Test Set", "Model", "2D RMSE (m)")
     values = _numeric(test["rmse_2d_m"])
     max_value = max(float(np.nanmax(values)), 1e-6)
+    _draw_axes(draw, plot, "Method Comparison on Test Set", "Model", "2D RMSE (m)", (0.0, max(len(test) - 1, 1), 0.0, max_value))
     bar_width = max(40, (plot["right"] - plot["left"]) // max(len(values) * 2, 1))
     font = _font(12)
     for i, (_, row) in enumerate(test.reset_index(drop=True).iterrows()):
@@ -282,13 +305,20 @@ def plot_residual_distribution(df: pd.DataFrame, path: Path) -> None:
         bottom = 430
         draw.rectangle([left, top, right, bottom], outline=COLORS["axis"])
         max_count = max(int(hist.max()), 1)
+        for tick in range(6):
+            y = bottom - tick * (bottom - top) / 5
+            if 0 < tick < 5:
+                draw.line([(left, y), (right, y)], fill=COLORS["grid"])
+            count_label = str(int(tick * max_count / 5))
+            draw.text((left - 40, y - 7), count_label, fill="#333333", font=_font(11))
         for i, count in enumerate(hist):
             x0 = left + i * (right - left) / len(hist)
             x1 = left + (i + 1) * (right - left) / len(hist)
             y0 = bottom - count / max_count * (bottom - top - 20)
             draw.rectangle([x0, y0, x1, bottom], fill=color)
         draw.text((left, 60), column, fill="#111111", font=font)
-        draw.text((left, bottom + 14), f"{edges[0]:.2f} to {edges[-1]:.2f} m", fill="#111111", font=_font(12))
+        draw.text((left, bottom + 14), f"Residual (m): {edges[0]:.2f} to {edges[-1]:.2f}", fill="#111111", font=_font(12))
+        draw.text((left - 48, top + 145), "Count", fill="#111111", font=_font(12))
     image.save(path)
 
 
