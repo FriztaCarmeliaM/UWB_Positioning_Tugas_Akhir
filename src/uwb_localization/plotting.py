@@ -186,7 +186,15 @@ def _draw_line(
     draw.line(points, fill=color, width=width, joint="curve")
 
 
-def plot_trajectory(part: pd.DataFrame, path: Path, title: str, config: dict) -> None:
+def plot_trajectory(
+    part: pd.DataFrame,
+    path: Path,
+    title: str,
+    config: dict,
+    fixed_bounds: tuple[float, float, float, float] | None = None,
+) -> None:
+    if fixed_bounds is None:
+        fixed_bounds = config.get("plotting", {}).get("fixed_bounds")
     labels = _labels(config)
     series: list[tuple[str, str, str, str, int]] = []
     if "raw_x" in part.columns and "raw_y" in part.columns:
@@ -199,7 +207,7 @@ def plot_trajectory(part: pd.DataFrame, path: Path, title: str, config: dict) ->
         series.append((labels["constraint"], "constraint_x", "constraint_y", COLORS["constraint"], 3))
 
     line_data = [(label, *_finite_line(part, x_col, y_col), color, width) for label, x_col, y_col, color, width in series]
-    bounds = _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=True)
+    bounds = fixed_bounds or _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=True)
     image, draw, plot = _canvas()
     _draw_axes(draw, plot, title, labels["x"], labels["y"], bounds)
     for _, x, y, color, width in line_data:

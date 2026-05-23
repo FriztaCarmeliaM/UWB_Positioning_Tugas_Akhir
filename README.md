@@ -562,13 +562,16 @@ menyimpang.
 
 | Sebelum final: 10-loop baseline test | Sesudah final: 10-loop more-train test |
 | --- | --- |
-| ![Before 10-loop Baseline](docs/results/previous_trajectory_comparison/before_10loop_baseline_test.png) | ![Final 10-loop Test](docs/results/20260518_213455/trajectory_10lup2_trilat_gt.png) |
+| ![Before 10-loop Baseline Equal Scale](docs/results/previous_trajectory_comparison/before_10loop_baseline_test_equal_scale.png) | ![After 10-loop Final Equal Scale](docs/results/previous_trajectory_comparison/after_10loop_moretrain_test_equal_scale.png) |
 
 Perbandingan 10-loop baseline dan final menunjukkan bahwa hasil final lebih
-stabil pada lintasan test yang sama. Raw UWB masih terlihat berisik, tetapi
-output EKF + LSTM final lebih dekat ke ground truth, terutama pada sisi bawah,
-sisi kiri, dan sisi atas lintasan. Sisi kanan masih menjadi sumber error besar,
-yang menjelaskan mengapa RMSE 2D masih 11.25 cm walaupun MAE 2D sudah 9.50 cm.
+stabil pada lintasan test yang sama. Dua gambar ini sengaja memakai batas dan
+skala sumbu yang sama, yaitu sekitar X `0.5-3.8 m` dan Y `0.5-3.8 m`, supaya
+pergeseran lintasan dapat dibandingkan secara adil. Raw UWB masih terlihat
+berisik, tetapi output EKF + LSTM final lebih dekat ke ground truth, terutama
+pada sisi bawah, sisi kiri, dan sisi atas lintasan. Sisi kanan masih menjadi
+sumber error besar, yang menjelaskan mengapa RMSE 2D masih 11.25 cm walaupun
+MAE 2D sudah 9.50 cm.
 
 ### 5.6 Hasil Per Lintasan
 
