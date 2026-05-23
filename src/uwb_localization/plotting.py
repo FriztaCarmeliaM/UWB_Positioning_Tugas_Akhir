@@ -138,23 +138,40 @@ def _draw_axes(
     x_label: str,
     y_label: str,
     bounds: tuple[float, float, float, float] | None = None,
+    tick_step_x: float | None = None,
+    tick_step_y: float | None = None,
 ) -> None:
     title_font = _font(20)
     text_font = _font(14)
     tick_font = _font(11)
     draw.rectangle([plot["left"], plot["top"], plot["right"], plot["bottom"]], outline=COLORS["axis"], width=1)
-    for i in range(6):
-        x = plot["left"] + i * (plot["right"] - plot["left"]) // 5
-        y = plot["top"] + i * (plot["bottom"] - plot["top"]) // 5
-        if 0 < i < 5:
-            draw.line([(x, plot["top"]), (x, plot["bottom"])], fill=COLORS["grid"])
-            draw.line([(plot["left"], y), (plot["right"], y)], fill=COLORS["grid"])
-        if bounds is not None:
-            x_min, x_max, y_min, y_max = bounds
-            x_value = x_min + i * (x_max - x_min) / 5
-            y_value = y_max - i * (y_max - y_min) / 5
-            draw.text((x - 18, plot["bottom"] + 8), _format_tick(x_value), fill="#333333", font=tick_font)
-            draw.text((plot["left"] - 55, y - 7), _format_tick(y_value), fill="#333333", font=tick_font)
+    if bounds is not None and tick_step_x and tick_step_y:
+        x_min, x_max, y_min, y_max = bounds
+        x_ticks = np.arange(np.ceil(x_min / tick_step_x) * tick_step_x, x_max + tick_step_x / 2, tick_step_x)
+        y_ticks = np.arange(np.ceil(y_min / tick_step_y) * tick_step_y, y_max + tick_step_y / 2, tick_step_y)
+        for x_value in x_ticks:
+            x = plot["left"] + (x_value - x_min) / (x_max - x_min) * (plot["right"] - plot["left"])
+            if x_min < x_value < x_max:
+                draw.line([(x, plot["top"]), (x, plot["bottom"])], fill=COLORS["grid"])
+            draw.text((x - 16, plot["bottom"] + 8), _format_tick(float(x_value)), fill="#333333", font=tick_font)
+        for y_value in y_ticks:
+            y = plot["bottom"] - (y_value - y_min) / (y_max - y_min) * (plot["bottom"] - plot["top"])
+            if y_min < y_value < y_max:
+                draw.line([(plot["left"], y), (plot["right"], y)], fill=COLORS["grid"])
+            draw.text((plot["left"] - 55, y - 7), _format_tick(float(y_value)), fill="#333333", font=tick_font)
+    else:
+        for i in range(6):
+            x = plot["left"] + i * (plot["right"] - plot["left"]) // 5
+            y = plot["top"] + i * (plot["bottom"] - plot["top"]) // 5
+            if 0 < i < 5:
+                draw.line([(x, plot["top"]), (x, plot["bottom"])], fill=COLORS["grid"])
+                draw.line([(plot["left"], y), (plot["right"], y)], fill=COLORS["grid"])
+            if bounds is not None:
+                x_min, x_max, y_min, y_max = bounds
+                x_value = x_min + i * (x_max - x_min) / 5
+                y_value = y_max - i * (y_max - y_min) / 5
+                draw.text((x - 18, plot["bottom"] + 8), _format_tick(x_value), fill="#333333", font=tick_font)
+                draw.text((plot["left"] - 55, y - 7), _format_tick(y_value), fill="#333333", font=tick_font)
     draw.text((plot["left"], 28), title, fill="#111111", font=title_font)
     draw.text(((plot["left"] + plot["right"]) // 2 - 35, plot["bottom"] + 45), x_label, fill="#111111", font=text_font)
     draw.text((18, (plot["top"] + plot["bottom"]) // 2), y_label, fill="#111111", font=text_font)
@@ -209,7 +226,7 @@ def plot_trajectory(
     line_data = [(label, *_finite_line(part, x_col, y_col), color, width) for label, x_col, y_col, color, width in series]
     bounds = fixed_bounds or _bounds([(x, y) for _, x, y, _, _ in line_data], equal_axis=True)
     image, draw, plot = _canvas()
-    _draw_axes(draw, plot, title, labels["x"], labels["y"], bounds)
+    _draw_axes(draw, plot, title, labels["x"], labels["y"], bounds, tick_step_x=0.5, tick_step_y=0.5)
     for _, x, y, color, width in line_data:
         _draw_line(draw, x, y, bounds, plot, color, width)
     _draw_legend(draw, [(label, color) for label, _, _, color, _ in line_data], plot)

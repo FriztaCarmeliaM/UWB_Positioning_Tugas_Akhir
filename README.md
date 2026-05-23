@@ -566,7 +566,8 @@ menyimpang.
 
 Perbandingan 10-loop baseline dan final menunjukkan bahwa hasil final lebih
 stabil pada lintasan test yang sama. Dua gambar ini sengaja memakai batas dan
-skala sumbu yang sama, yaitu sekitar X `0.5-3.8 m` dan Y `0.5-3.8 m`, supaya
+skala sumbu yang sama, yaitu X `0.5-4.0 m` dan Y `0.5-4.0 m` dengan interval
+grid `0.5 m`, supaya
 pergeseran lintasan dapat dibandingkan secara adil. Raw UWB masih terlihat
 berisik, tetapi output EKF + LSTM final lebih dekat ke ground truth, terutama
 pada sisi bawah, sisi kiri, dan sisi atas lintasan. Sisi kanan masih menjadi

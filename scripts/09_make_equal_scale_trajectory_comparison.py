@@ -40,7 +40,7 @@ def main() -> None:
             output_path,
             title,
             config,
-            fixed_bounds=(0.5, 3.8, 0.5, 3.8),
+            fixed_bounds=(0.5, 4.0, 0.5, 4.0),
         )
         print(output_path.relative_to(ROOT))
 
