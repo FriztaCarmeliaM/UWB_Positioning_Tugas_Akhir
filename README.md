@@ -53,8 +53,9 @@ Cara membaca hasil utama:
   - [5.2 Hasil Kalibrasi Range](#52-hasil-kalibrasi-range)
   - [5.3 Hasil Kuantitatif Test Set](#53-hasil-kuantitatif-test-set)
   - [5.4 Catatan Percobaan Tuning](#54-catatan-percobaan-tuning)
-  - [5.5 Hasil Per Lintasan](#55-hasil-per-lintasan)
-  - [5.6 Visualisasi](#56-visualisasi)
+  - [5.5 Perbandingan Visual Lintasan Sebelum dan Sesudah](#55-perbandingan-visual-lintasan-sebelum-dan-sesudah)
+  - [5.6 Hasil Per Lintasan](#56-hasil-per-lintasan)
+  - [5.7 Visualisasi](#57-visualisasi)
 - [6. Diskusi](#6-diskusi)
   - [6.1 Interpretasi Hasil](#61-interpretasi-hasil)
   - [6.2 Mengapa Target 5 cm Belum Realistis](#62-mengapa-target-5-cm-belum-realistis)
@@ -543,7 +544,33 @@ menunjukkan error 2D dalam sentimeter. Garis merah adalah batas target 10 cm.
 Hasil final dipilih karena memiliki RMSE dan MAE paling rendah dibanding
 percobaan sebelumnya.
 
-### 5.5 Hasil Per Lintasan
+### 5.5 Perbandingan Visual Lintasan Sebelum dan Sesudah
+
+Bagian ini menampilkan gambar lintasan dari hasil sebelumnya dan hasil final
+agar perbedaannya dapat dilihat secara visual. Semua gambar trajectory memakai
+sumbu X dan Y dalam satuan meter. Garis ground truth menjadi acuan lintasan,
+sedangkan Raw UWB, EKF, dan EKF + LSTM menunjukkan hasil estimasi posisi.
+
+| Tahap sebelumnya: kotak 2-loop | Tahap sebelumnya: kotak 3-loop |
+| --- | --- |
+| ![Before Kotak 2 Loop](docs/results/previous_trajectory_comparison/before_kotak_2_loop.png) | ![Before Kotak 3 Loop](docs/results/previous_trajectory_comparison/before_kotak_3_loop.png) |
+
+Gambar kotak 2-loop dan 3-loop menunjukkan hasil awal sebelum pipeline final.
+Pada tahap ini bentuk lintasan sudah mulai mengikuti kotak, tetapi masih terlihat
+pergeseran besar terhadap ground truth dan beberapa bagian lintasan masih
+menyimpang.
+
+| Sebelum final: 10-loop baseline test | Sesudah final: 10-loop more-train test |
+| --- | --- |
+| ![Before 10-loop Baseline](docs/results/previous_trajectory_comparison/before_10loop_baseline_test.png) | ![Final 10-loop Test](docs/results/20260518_213455/trajectory_10lup2_trilat_gt.png) |
+
+Perbandingan 10-loop baseline dan final menunjukkan bahwa hasil final lebih
+stabil pada lintasan test yang sama. Raw UWB masih terlihat berisik, tetapi
+output EKF + LSTM final lebih dekat ke ground truth, terutama pada sisi bawah,
+sisi kiri, dan sisi atas lintasan. Sisi kanan masih menjadi sumber error besar,
+yang menjelaskan mengapa RMSE 2D masih 11.25 cm walaupun MAE 2D sudah 9.50 cm.
+
+### 5.6 Hasil Per Lintasan
 
 | Split | Trajectory | Model Terbaik | RMSE 2D Terbaik |
 | --- | --- | --- | ---: |
@@ -572,7 +599,7 @@ atau di bawah 10 cm pada MAE/median. Error terbesar masih muncul pada bagian
 start/stop dan beberapa segmen yang terkena lonjakan UWB, sehingga RMSE total
 masih tertahan di 11.25 cm.
 
-### 5.6 Visualisasi
+### 5.7 Visualisasi
 
 Gambar berikut ditambahkan sebagai bukti ringkas bahwa hasil terbaru sudah
 sesuai dengan kesepakatan target alternatif: MAE 2D berada di bawah 10 cm,
@@ -596,7 +623,7 @@ menunjukkan segmen lintasan, sedangkan sumbu Y menunjukkan error 2D dalam
 sentimeter. Grafik ini dipakai untuk melihat segmen mana yang masih menyumbang
 error besar.
 
-#### 5.6.1 Perbandingan Metode pada Test Set
+#### 5.7.1 Perbandingan Metode pada Test Set
 
 ![Test Method Comparison](docs/results/20260518_213455/test_method_comparison.png)
 
@@ -604,7 +631,7 @@ Gambar ini membandingkan RMSE 2D setiap metode pada test set. Sumbu X
 menunjukkan model yang dievaluasi, sedangkan sumbu Y menunjukkan RMSE 2D dalam
 meter. Tujuannya untuk memperlihatkan penurunan error dari EKF ke EKF + LSTM.
 
-#### 5.6.2 CDF Error 2D pada Test Set
+#### 5.7.2 CDF Error 2D pada Test Set
 
 ![Test Error CDF](docs/results/20260518_213455/test_error_cdf.png)
 
@@ -612,7 +639,7 @@ Gambar CDF menunjukkan sebaran error test. Sumbu X adalah besar error 2D dalam
 meter, sedangkan sumbu Y adalah proporsi kumulatif sampel. Kurva yang lebih ke
 kiri berarti metode memiliki error yang lebih kecil.
 
-#### 5.6.3 Full Trajectory Comparison
+#### 5.7.3 Full Trajectory Comparison
 
 ![Full Trajectory Comparison](docs/results/20260518_213455/full_trajectory_comparison.png)
 
@@ -620,7 +647,7 @@ Gambar ini memperlihatkan lintasan keseluruhan semua split. Sumbu X dan Y adalah
 koordinat posisi dalam meter. Garis ground truth digunakan sebagai lintasan
 acuan, lalu dibandingkan dengan raw UWB, EKF, dan EKF + LSTM.
 
-#### 5.6.4 Trajectory per Lintasan
+#### 5.7.4 Trajectory per Lintasan
 
 | Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
@@ -635,7 +662,7 @@ Sumbu X dan Y adalah koordinat posisi dalam meter. Bagian ini dipakai untuk
 menunjukkan bahwa evaluasi tidak hanya dilihat dari angka tabel, tetapi juga
 dari kecocokan bentuk lintasan terhadap ground truth.
 
-#### 5.6.5 Error Over Time per Lintasan
+#### 5.7.5 Error Over Time per Lintasan
 
 | Train `10lup` | Train/Validation `10lup1` |
 | --- | --- |
@@ -649,7 +676,7 @@ Gambar error over time memperlihatkan perubahan error sepanjang waktu. Sumbu X
 adalah waktu pengambilan data, sedangkan sumbu Y adalah error 2D dalam meter.
 Gambar ini membantu melihat bagian mana yang mengalami lonjakan/spike.
 
-#### 5.6.6 Residual Distribution LSTM
+#### 5.7.6 Residual Distribution LSTM
 
 ![LSTM Residual Distribution](docs/results/20260518_213455/lstm_residual_distribution.png)
 
