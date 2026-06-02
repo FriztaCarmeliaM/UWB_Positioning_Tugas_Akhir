@@ -1,0 +1,96 @@
+random_seed: 42
+
+data:
+  csv_paths:
+    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_3_gt.csv"
+    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_4_gt.csv"
+    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_5_gt.csv"
+  sort_by_time: true
+  static_calibration_tracks: []
+
+columns:
+  time: ["time", "timestamp", "t"]
+  ranges:
+    "1": ["el1", "d1_horizontal", "range_1", "d1"]
+    "2": ["el2", "d2_horizontal", "range_2", "d2"]
+    "3": ["el3", "d3_horizontal", "range_3", "d3"]
+  ground_truth:
+    x: ["gt_x", "x_true"]
+    y: ["gt_y", "y_true"]
+  raw_position:
+    x: ["x", "raw_x"]
+    y: ["y", "raw_y"]
+  legacy_kf_position:
+    x: ["x_kf", "legacy_kf_x"]
+    y: ["y_kf", "legacy_kf_y"]
+
+anchors:
+  "1": {x: 2.26, y: 4.60, bias: 0.0}
+  "2": {x: 0.0, y: 0.0, bias: 0.0}
+  "3": {x: 4.55, y: 0.0, bias: 0.0}
+
+split:
+  strategy: "by_track"
+  train_tracks: ["s3_1_3_gt", "s3_1_4_gt"]
+  validation_tracks: []
+  test_tracks: ["s3_1_5_gt"]
+  validation_within_train_ratio: 0.15
+
+range_calibration: {enabled: true, method: "huber", min_samples_per_anchor: 50, min_robust_samples: 200}
+
+preprocessing:
+  range_filter: {enabled: true, window_size: 5, hampel_sigma: 3.0, min_threshold_m: 0.18, max_step_m: 0.30, max_rate_mps: 4.0, ema_alpha: 0.85}
+
+anchor_optimization:
+  enabled: true
+  optimize_bias: true
+  max_anchor_move_m: 0.15
+  max_bias_m: 0.50
+  move_regularization_m: 0.10
+  bias_regularization_m: 0.50
+  regularization_weight: 0.01
+  loss: "soft_l1"
+  loss_scale_m: 0.20
+  max_samples: 20000
+
+ekf:
+  process_noise_accel: 0.20
+  measurement_noise: 0.20
+  initial_position_std: 1.00
+  initial_velocity_std: 1.00
+  gating_threshold: 9.21
+  min_valid_anchors: 3
+  default_dt: 0.05
+  max_dt: 0.25
+  enable_gating: true
+
+ekf_tuning:
+  process_noise_accel: [0.03, 0.06, 0.10, 0.20, 0.35]
+  measurement_noise: [0.08, 0.12, 0.16, 0.20, 0.28]
+  gating_threshold: [6.63, 9.21, 16.27]
+  enable_gating: [true]
+
+lstm:
+  sequence_length: 30
+  hidden_size: 64
+  dropout: 0.25
+  dense_dropout: 0.15
+  gaussian_noise: 0.01
+  learning_rate: 0.001
+  min_learning_rate: 0.00001
+  batch_size: 64
+  epochs: 120
+  patience: 15
+  huber_delta: 1.0
+  clipnorm: 1.0
+  residual_clip_m: 0.50
+  lstm_weight_lambda: 1.0
+
+constraint:
+  enabled: false
+  type: "rectangle"
+  max_projection_m: 0.50
+  rectangle: {x_min: 1.0, x_max: 3.0, y_min: 1.0, y_max: 3.0}
+
+plotting: {language: "en", fixed_bounds: [0.5, 4.0, 0.5, 4.0]}
+output: {base_dir: "outputs/uwb_dataset_baru_segitiga_pipeline", run_name: null}

@@ -26,6 +26,9 @@ Cara membaca hasil utama:
 4. Seluruh angka utama di README ini berasal dari snapshot
    `docs/results/20260518_213455/`, terutama file `metrics.csv` dan
    `segment_metrics.csv`.
+5. Eksperimen tambahan pada `dataset_baru` memakai pola L dan segitiga untuk
+   memperluas pembahasan generalisasi lintasan. Snapshot visualnya disimpan di
+   `docs/results/20260602_dataset_baru/`.
 
 ---
 
@@ -56,6 +59,7 @@ Cara membaca hasil utama:
   - [5.5 Perbandingan Visual Lintasan Sebelum dan Sesudah](#55-perbandingan-visual-lintasan-sebelum-dan-sesudah)
   - [5.6 Hasil Per Lintasan](#56-hasil-per-lintasan)
   - [5.7 Visualisasi](#57-visualisasi)
+  - [5.8 Eksperimen Dataset Baru: Pola L dan Segitiga](#58-eksperimen-dataset-baru-pola-l-dan-segitiga)
 - [6. Diskusi](#6-diskusi)
   - [6.1 Interpretasi Hasil](#61-interpretasi-hasil)
   - [6.2 Mengapa Target 5 cm Belum Realistis](#62-mengapa-target-5-cm-belum-realistis)
@@ -698,6 +702,104 @@ Gambar distribusi residual menunjukkan koreksi yang dipelajari LSTM. Sumbu X
 adalah residual dalam meter, sedangkan sumbu Y adalah jumlah sampel. Distribusi
 ini digunakan untuk melihat apakah koreksi LSTM masih dalam rentang yang masuk
 akal atau terlalu ekstrem.
+
+### 5.8 Eksperimen Dataset Baru: Pola L dan Segitiga
+
+Dataset tambahan pada folder `dataset_baru` digunakan untuk mengecek apakah
+pipeline masih dapat dipakai pada lintasan selain kotak. Dua pola yang
+dievaluasi adalah pola L dan pola segitiga. Pada data baru ini, kolom
+`target_x` dan `target_y` dipakai sebagai penanda timestamp saat tag mencapai
+waypoint tertentu, sehingga ground truth tidak lagi dibuat hanya dari perkiraan
+awal-akhir lintasan. Ground truth dibentuk dengan interpolasi per segmen di
+antara waypoint yang benar-benar tercatat.
+
+Split evaluasi tetap dibuat no-data-leakage. Untuk pola L, data `L1_gt` dan
+`L2_gt` dipakai sebagai train/validation, sedangkan `L3_gt` dipakai sebagai
+test. Untuk pola segitiga, data `s3_1_3_gt` dan `s3_1_4_gt` dipakai sebagai
+train/validation, sedangkan `s3_1_5_gt` dipakai sebagai test. Test set tidak
+digunakan saat kalibrasi range, optimasi anchor, fitting scaler, training LSTM,
+atau pemilihan model.
+
+| Pola | Test set | Metode | RMSE 2D | MAE 2D | Error < 10 cm | Error < 20 cm | Catatan |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- |
+| L | `L3_gt` | Raw trilateration | 22.69 cm | 19.60 cm | 24.52% | 51.53% | Baseline dari posisi trilaterasi data. |
+| L | `L3_gt` | EKF only | 42.14 cm | 19.80 cm | 41.35% | 69.98% | Lebih stabil pada banyak sampel, tetapi RMSE membesar karena spike besar. |
+| L | `L3_gt` | EKF + LSTM residual | 39.42 cm | 15.76 cm | 48.04% | 90.13% | MAE dan proporsi error kecil membaik, tetapi masih ada outlier besar. |
+| Segitiga | `s3_1_5_gt` | EKF only | 13.69 cm | 11.57 cm | 50.03% | 84.73% | Baseline estimasi pada pola segitiga. |
+| Segitiga | `s3_1_5_gt` | EKF + LSTM residual | 13.18 cm | 10.47 cm | 58.51% | 85.11% | Hasil terbaik pada dataset baru. |
+
+Ringkasan visual berikut memakai sumbu X berupa metode/pola dan sumbu Y berupa
+error 2D dalam sentimeter. Garis merah menunjukkan target 10 cm. Dari grafik
+terlihat bahwa hasil utama di bawah 10 cm tetap berasal dari eksperimen kotak
+final pada MAE 2D 9.50 cm, sedangkan dataset baru dipakai untuk memperluas
+pembahasan pola lintasan yang lebih kompleks.
+
+![Ringkasan Dataset Baru](docs/results/20260602_dataset_baru/dataset_baru_summary.png)
+
+#### 5.8.1 Pola L
+
+Pola L bergerak dari `(1,1)` ke `(1,3)`, kembali ke `(1,1)`, lalu ke `(3,1)`
+dan kembali lagi ke `(1,1)`. Gambar trajectory memakai sumbu X dan Y dalam
+meter dengan grid 0.5 m. Ground truth terlihat sebagai lintasan acuan berbentuk
+L, sedangkan hasil EKF + LSTM mengikuti lintasan utama tetapi masih memiliki
+lonjakan pada sisi kanan. Karena itu, hasil pola L dilaporkan sebagai bukti
+peningkatan MAE dan stabilitas sebagian besar sampel, bukan sebagai klaim
+target 10 cm.
+
+| Trajectory test `L3_gt` | Error over time `L3_gt` |
+| --- | --- |
+| ![Trajectory Pola L](docs/results/20260602_dataset_baru/trajectory_l_test.png) | ![Error Over Time Pola L](docs/results/20260602_dataset_baru/error_over_time_l_test.png) |
+
+Gambar error over time memakai sumbu X berupa waktu sampel dan sumbu Y berupa
+error 2D dalam meter. Grafik ini menunjukkan kapan spike terjadi, sehingga
+penyebab RMSE pola L yang besar dapat ditelusuri secara visual.
+
+| CDF error test | Perbandingan metode |
+| --- | --- |
+| ![CDF Pola L](docs/results/20260602_dataset_baru/cdf_l_test.png) | ![Perbandingan Metode Pola L](docs/results/20260602_dataset_baru/method_l_test.png) |
+
+CDF memakai sumbu X berupa error 2D dalam meter dan sumbu Y berupa proporsi
+kumulatif sampel. Kurva EKF + LSTM yang lebih cepat naik menunjukkan bahwa
+lebih banyak sampel berada pada error kecil, walaupun beberapa outlier masih
+membuat RMSE tidak ideal. Gambar perbandingan metode memakai sumbu X berupa
+metode dan sumbu Y berupa RMSE 2D dalam meter.
+
+![Training dan Validation Loss Pola L](docs/results/20260602_dataset_baru/loss_l.png)
+
+Grafik loss pola L memakai sumbu X berupa epoch dan sumbu Y berupa nilai loss.
+Training loss menurun, sedangkan validation loss dipakai untuk memantau apakah
+model mulai terlalu mengikuti data train.
+
+#### 5.8.2 Pola Segitiga
+
+Pola segitiga bergerak dari `(1,1)` ke `(1,3)`, lalu ke `(3,3)`, dan kembali ke
+`(1,1)`. Dibandingkan pola L, pola ini menghasilkan lintasan yang lebih stabil
+dan menjadi eksperimen tambahan terbaik pada dataset baru. EKF + LSTM
+menurunkan RMSE dari 13.69 cm menjadi 13.18 cm dan MAE dari 11.57 cm menjadi
+10.47 cm.
+
+| Trajectory test `s3_1_5_gt` | Error over time `s3_1_5_gt` |
+| --- | --- |
+| ![Trajectory Segitiga](docs/results/20260602_dataset_baru/trajectory_segitiga_test.png) | ![Error Over Time Segitiga](docs/results/20260602_dataset_baru/error_over_time_segitiga_test.png) |
+
+Gambar trajectory segitiga memakai sumbu X dan Y dalam meter dengan grid 0.5 m.
+Gambar error over time memakai sumbu X berupa waktu sampel dan sumbu Y berupa
+error 2D dalam meter. Dua gambar ini menunjukkan bahwa estimasi mengikuti bentuk
+lintasan segitiga dan error relatif terkendali sepanjang test set.
+
+| CDF error test | Perbandingan metode |
+| --- | --- |
+| ![CDF Segitiga](docs/results/20260602_dataset_baru/cdf_segitiga_test.png) | ![Perbandingan Metode Segitiga](docs/results/20260602_dataset_baru/method_segitiga_test.png) |
+
+CDF segitiga menunjukkan proporsi kumulatif error. Persentase sampel di bawah
+10 cm naik dari 50.03% pada EKF menjadi 58.51% setelah LSTM residual. Grafik
+perbandingan metode memperlihatkan penurunan RMSE 2D dari EKF ke EKF + LSTM.
+
+![Training dan Validation Loss Segitiga](docs/results/20260602_dataset_baru/loss_segitiga.png)
+
+Grafik loss segitiga memakai sumbu X berupa epoch dan sumbu Y berupa nilai loss.
+Validation loss yang cenderung turun lalu mendatar menunjukkan model masih
+memberi koreksi residual yang stabil tanpa indikasi leakage dari test set.
 
 ---
 
