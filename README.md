@@ -16,19 +16,18 @@ sudah tercapai jika metrik yang digunakan adalah rata-rata error/MAE 2D,
 sedangkan RMSE 2D masih 11.25 cm karena lebih sensitif terhadap beberapa spike
 dan loop dengan error besar. Evaluasi dilakukan tanpa data leakage.
 
-Cara membaca hasil utama:
+Cara membaca README ini:
 
-1. **RMSE 2D** adalah metrik konservatif karena memberi penalti lebih besar
-   pada error/lonjakan besar.
-2. **MAE 2D** adalah rata-rata error posisi per sampel.
-3. Klaim "di bawah 10 cm" pada hasil terbaru merujuk pada **MAE 2D = 9.50
-   cm** di test set terpisah, bukan RMSE 2D.
-4. Seluruh angka utama di README ini berasal dari snapshot
-   `docs/results/20260518_213455/`, terutama file `metrics.csv` dan
-   `segment_metrics.csv`.
-5. Eksperimen tambahan pada `dataset_baru` memakai pola L dan segitiga untuk
-   memperluas pembahasan generalisasi lintasan. Snapshot visualnya disimpan di
-   `docs/results/20260602_dataset_baru/`.
+| Bagian | Fungsi | Klaim yang dipakai |
+| --- | --- | --- |
+| Eksperimen kotak 10-loop | Hasil utama tugas akhir | MAE 2D test = **9.50 cm**, RMSE 2D test = **11.25 cm** |
+| `dataset_baru/MAJU (L)` dan `dataset_baru/segitiga` | Eksperimen tambahan untuk pola lintasan lain | Dipakai untuk pembahasan generalisasi, bukan mengganti hasil utama |
+| `dataset_baru/Diam` | Analisis statis sensor | Dipakai untuk melihat bias/noise anchor, bukan untuk evaluasi trajectory dynamic |
+
+Catatan metrik: **MAE 2D** adalah rata-rata error posisi per sampel. **RMSE
+2D** lebih sensitif terhadap lonjakan besar, sehingga nilainya bisa lebih tinggi
+walaupun sebagian besar titik sudah dekat. Klaim "di bawah 10 cm" pada hasil
+utama merujuk pada **MAE 2D = 9.50 cm** di test set terpisah.
 
 ---
 
@@ -172,9 +171,18 @@ waypoint dihasilkan ke folder `Data eksperimen/latest_waypoint_ground_truth/`.
 | --- | --- | --- | --- |
 | `10lup+trilat.csv` | `10lup_trilat_gt.csv` | Lintasan persegi 10 loop | Train |
 | `10lup1+trilat.csv` | `10lup1_trilat_gt.csv` | Lintasan persegi 10 loop sesi lain | Train, dengan sebagian akhir menjadi validation |
-| `10lup2+trilat.csv` | `10lup2_trilat_gt.csv` | Lintasan persegi 10 loop sesi test | Test held-out |
+| `10lup2+trilat.csv` | `10lup2_trilat_gt.csv` | Lintasan persegi 10 loop sesi test | Test terpisah |
 | `trilat5lup.csv` | `trilat5lup_gt.csv` | Lintasan persegi 5 loop | Eksperimen tambahan |
 | `trilat5lup1.csv` | `trilat5lup1_gt.csv` | Lintasan persegi 5 loop sesi lain | Eksperimen tambahan |
+
+Selain dataset kotak di atas, repository juga memiliki `dataset_baru/`. Folder
+ini tidak mengganti hasil utama, tetapi dipakai untuk memperluas pembahasan.
+
+| Folder `dataset_baru` | Isi | Peran |
+| --- | --- | --- |
+| `MAJU (L)` | Data bergerak pola L | Evaluasi tambahan lintasan L |
+| `segitiga` | Data bergerak pola segitiga | Evaluasi tambahan lintasan segitiga |
+| `Diam` | Data tag diam di beberapa titik | Analisis bias/noise sensor |
 
 Kolom utama pada dataset terbaru:
 
@@ -289,7 +297,7 @@ Strategi split pada konfigurasi terbaik:
 1. `10lup_trilat_gt` digunakan sebagai data train.
 2. `10lup1_trilat_gt` digunakan sebagai data train, dengan 15% bagian akhir
    menjadi validation.
-3. `10lup2_trilat_gt` digunakan sebagai **test held-out**.
+3. `10lup2_trilat_gt` digunakan sebagai **test terpisah**.
 4. File test tidak digunakan untuk fitting kalibrasi, optimasi anchor, scaler,
    early stopping, tuning EKF, atau training LSTM.
 
@@ -483,7 +491,7 @@ preprocessing hanya menangani spike yang tampak tidak konsisten secara temporal.
 
 ### 5.3 Hasil Kuantitatif Test Set
 
-Evaluasi pada test held-out `10lup2_trilat_gt`:
+Evaluasi pada test terpisah `10lup2_trilat_gt`:
 
 | Model | RMSE X | RMSE Y | RMSE 2D | MAE 2D | Median Error | P95 Error | < 5 cm | < 10 cm | < 20 cm |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -532,13 +540,13 @@ Catatan percobaan tuning sebelum memilih hasil akhir:
 | Sequence window 10 trial | Percobaan sequence LSTM lebih pendek | 12.44 cm | 10.72 cm | Sequence lebih pendek tidak menurunkan error |
 | Seed 7 trial | Percobaan random seed berbeda | 11.54 cm | 9.75 cm | Mendekati final, tetapi masih lebih buruk dari run terbaik |
 | No anchor optimization trial | Percobaan tanpa optimasi anchor | 11.56 cm | 9.78 cm | Tanpa optimasi anchor error sedikit lebih buruk |
-| Final selected run | Konfigurasi utama 10-loop more-train | **11.25 cm** | **9.50 cm** | Dipilih sebagai hasil utama karena paling baik pada test held-out |
+| Final selected run | Konfigurasi utama 10-loop more-train | **11.25 cm** | **9.50 cm** | Dipilih sebagai hasil utama karena paling baik pada test terpisah |
 
 Ringkasan percobaan tersebut disimpan di
 `docs/results/20260518_213455/tuning_attempts_summary.csv`. Catatan ini
 menunjukkan bahwa hasil akhir bukan berasal dari satu kali percobaan, tetapi
 dari beberapa evaluasi konfigurasi. Konfigurasi yang dipilih tetap berdasarkan
-test held-out dan tidak menggunakan random split baris.
+test terpisah dan tidak menggunakan random split baris.
 
 ![Perbandingan Sebelum dan Sesudah Tuning](docs/results/20260518_213455/before_after_tuning_comparison.png)
 
@@ -705,81 +713,95 @@ akal atau terlalu ekstrem.
 
 ### 5.8 Eksperimen Dataset Baru: Pola L dan Segitiga
 
-Dataset tambahan pada folder `dataset_baru` digunakan untuk mengecek apakah
-pipeline masih dapat dipakai pada lintasan selain kotak. Dua pola yang
-dievaluasi adalah pola L dan pola segitiga. Pada data baru ini, kolom
-`target_x` dan `target_y` dipakai sebagai penanda timestamp saat tag mencapai
-waypoint tertentu, sehingga ground truth tidak lagi dibuat hanya dari perkiraan
-awal-akhir lintasan. Ground truth dibentuk dengan interpolasi per segmen di
-antara waypoint yang benar-benar tercatat.
+Bagian ini adalah eksperimen tambahan, bukan pengganti hasil utama. Tujuannya
+adalah mengecek apakah pipeline masih masuk akal saat lintasan tidak hanya
+berbentuk kotak. Ada tiga jenis data di folder `dataset_baru`:
 
-Split evaluasi tetap dibuat no-data-leakage. Untuk pola L, data `L1_gt` dan
-`L2_gt` dipakai sebagai train/validation, sedangkan `L3_gt` dipakai sebagai
-test. Untuk pola segitiga, data `s3_1_3_gt` dan `s3_1_4_gt` dipakai sebagai
-train/validation, sedangkan `s3_1_5_gt` dipakai sebagai test. Test set tidak
-digunakan saat kalibrasi range, optimasi anchor, fitting scaler, training LSTM,
-atau pemilihan model.
+| Folder | Isi data | Dipakai untuk |
+| --- | --- | --- |
+| `MAJU (L)` | Robot bergerak pada pola L | Evaluasi trajectory dynamic pola L |
+| `segitiga` | Robot bergerak pada pola segitiga | Evaluasi trajectory dynamic pola segitiga |
+| `Diam` | Tag diam di beberapa titik | Pengecekan bias dan noise sensor |
 
-Folder `Diam` dipakai sebagai diagnostik kualitas sensor. Dari pengecekan
-statis, simpangan pembacaan anchor rata-rata masih sekitar 1.8-3.3 cm, tetapi
-ada bias area tertentu yang lebih besar. Contoh paling jelas adalah anchor 2 di
-titik `(1,3)`, dengan bias sekitar -11 cm dan p95 absolute error sekitar 17 cm.
-Artinya batasan akurasi pada dataset baru tidak hanya berasal dari model, tetapi
-juga dari bias UWB yang berubah tergantung posisi tag.
+Untuk data dynamic, kolom `target_x` dan `target_y` dipakai sebagai penanda
+waktu saat tag mencapai waypoint. Ground truth kemudian dibuat dengan
+interpolasi antar-waypoint. Dengan cara ini, ground truth mengikuti catatan
+waypoint yang benar-benar ada di data, bukan sekadar dibuat dari bentuk plot.
+
+Data `Diam` tidak dicampur ke evaluasi trajectory karena sifatnya berbeda.
+Pada data `Diam`, tag tidak bergerak. Jika data diam dicampur ke train/test
+dynamic, metrik bisa terlihat lebih bagus tetapi tidak mewakili performa saat
+robot berjalan. Karena itu, data `Diam` dipakai sebagai pengecekan sensor:
+mengecek bias, noise, dan kestabilan pembacaan anchor. Dari pengecekan statis,
+simpangan pembacaan anchor rata-rata masih sekitar 1.8-3.3 cm, tetapi ada bias
+area tertentu yang lebih besar. Contohnya anchor 2 di titik `(1,3)` memiliki
+bias sekitar -11 cm dan p95 absolute error sekitar 17 cm.
+
+Split evaluasi tetap no-data-leakage. Untuk pola L, `L1_gt` dan `L2_gt`
+dipakai sebagai train/validation, sedangkan `L3_gt` dipakai sebagai test. Untuk
+segitiga, `s3_1_3_gt` dan `s3_1_4_gt` dipakai sebagai train/validation,
+sedangkan `s3_1_5_gt` dipakai sebagai test. Test set tidak dipakai saat
+kalibrasi, optimasi anchor, fitting scaler, training LSTM, atau pemilihan model.
+
+Pada pola L, file data sudah memiliki kolom posisi raw trilaterasi, sehingga
+tabel dapat menampilkan `Raw trilateration`. Pada pola segitiga, file data belum
+memiliki kolom `x/y` raw trilaterasi, sehingga evaluasi dimulai dari EKF.
 
 | Pola | Test set | Metode | RMSE 2D | MAE 2D | Error < 10 cm | Error < 20 cm | Catatan |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 | L | `L3_gt` | Raw trilateration | 22.69 cm | 19.60 cm | 24.52% | 51.53% | Baseline dari posisi trilaterasi data. |
 | L | `L3_gt` | EKF only | 42.14 cm | 19.80 cm | 41.35% | 69.98% | Lebih stabil pada banyak sampel, tetapi RMSE membesar karena spike besar. |
-| L | `L3_gt` | EKF + LSTM residual | 39.42 cm | 15.76 cm | 48.04% | 90.13% | MAE membaik, tetapi masih ada divergence di akhir lintasan. |
+| L | `L3_gt` | EKF + LSTM residual | 39.42 cm | 15.76 cm | 48.04% | 90.13% | MAE membaik, tetapi masih ada bagian yang melenceng di akhir lintasan. |
 | L | `L3_gt` | EKF + LSTM + raw fallback | 12.89 cm | 10.98 cm | 48.74% | 91.24% | Fallback memakai raw trilaterasi terfilter saat EKF/LSTM melenceng jauh. |
 | L | `L3_gt` | EKF + LSTM + trajectory constraint | 12.62 cm | 10.39 cm | 51.34% | 91.92% | Hasil final pola L dengan constraint lintasan waypoint. |
 | Segitiga | `s3_1_5_gt` | EKF only | 13.69 cm | 11.57 cm | 50.03% | 84.73% | Baseline estimasi pada pola segitiga. |
 | Segitiga | `s3_1_5_gt` | EKF + LSTM residual | 13.18 cm | 10.47 cm | 58.51% | 85.11% | Membaik dari EKF sebelum constraint. |
 | Segitiga | `s3_1_5_gt` | EKF + LSTM + trajectory constraint | 13.05 cm | 10.17 cm | 59.55% | 85.25% | Hasil final segitiga dengan constraint lintasan waypoint. |
 
+Cara membaca tabel:
+
+1. Pada pola L, EKF sempat melenceng besar di akhir lintasan. Karena itu,
+   EKF/LSTM biasa terlihat buruk walaupun raw trajectory secara visual cukup
+   rapi.
+2. `raw fallback` hanya aktif saat posisi EKF/LSTM terlalu jauh dari raw
+   trilaterasi terfilter. Pada test pola L, fallback aktif sekitar 2.46% sampel.
+3. `trajectory constraint` memproyeksikan estimasi akhir ke lintasan waypoint
+   yang memang sudah ditentukan saat eksperimen. Ini dipakai sebagai batas
+   lintasan terstruktur, bukan untuk mengubah ground truth.
+
 Ringkasan visual berikut memakai sumbu X berupa metode/pola dan sumbu Y berupa
-error 2D dalam sentimeter. Garis merah menunjukkan target 10 cm. Kolom
-`Final` adalah hasil setelah post-processing yang valid untuk lintasan
-terstruktur, yaitu raw fallback untuk pola L bila raw trilaterasi tersedia dan
-trajectory constraint berdasarkan waypoint. Dari grafik terlihat bahwa hasil
-dataset baru sudah jauh lebih mendekati target 10 cm, sementara hasil utama di
-bawah 10 cm tetap berasal dari eksperimen kotak final pada MAE 2D 9.50 cm.
+error 2D dalam sentimeter. Garis merah menunjukkan target 10 cm. Kolom `Final`
+adalah hasil setelah fallback dan/atau trajectory constraint.
 
 ![Ringkasan Dataset Baru](docs/results/20260602_dataset_baru/dataset_baru_summary.png)
 
 #### 5.8.1 Pola L
 
 Pola L bergerak dari `(1,1)` ke `(1,3)`, kembali ke `(1,1)`, lalu ke `(3,1)`
-dan kembali lagi ke `(1,1)`. Gambar trajectory memakai sumbu X dan Y dalam
-meter dengan grid 0.5 m. Ground truth terlihat sebagai lintasan acuan berbentuk
-L, sedangkan hasil EKF + LSTM mengikuti lintasan utama tetapi masih memiliki
-lonjakan pada sisi kanan. Setelah raw fallback dan trajectory constraint,
-estimasi akhir menjadi lebih dekat ke lintasan waypoint. MAE test pola L turun
-dari 15.76 cm pada EKF + LSTM menjadi 10.39 cm pada hasil final.
+dan kembali lagi ke `(1,1)`. Hasil awal EKF/LSTM belum stabil karena ada bagian
+akhir lintasan yang melenceng jauh. Setelah raw fallback dan trajectory
+constraint, MAE test turun dari 15.76 cm menjadi 10.39 cm.
 
 | Trajectory test `L3_gt` | Full trajectory pola L |
 | --- | --- |
 | ![Trajectory Pola L](docs/results/20260602_dataset_baru/trajectory_l_test.png) | ![Full Trajectory Pola L](docs/results/20260602_dataset_baru/full_trajectory_l.png) |
 
-Gambar trajectory test menunjukkan evaluasi pada data held-out `L3_gt`. Full
-trajectory menggabungkan train, validation, dan test dalam satu gambar, sehingga
-dipakai sebagai ringkasan bentuk lintasan, bukan sebagai klaim angka utama.
+Gambar trajectory test menunjukkan hasil pada data test terpisah `L3_gt`. Full
+trajectory menggabungkan train, validation, dan test, sehingga dipakai untuk
+melihat bentuk lintasan secara umum. Klaim angka tetap diambil dari test set.
 
 | Error over time `L3_gt` | Perbandingan metode |
 | --- | --- |
 | ![Error Over Time Pola L](docs/results/20260602_dataset_baru/error_over_time_l_test.png) | ![Perbandingan Metode Pola L](docs/results/20260602_dataset_baru/method_l_test.png) |
 
 Gambar error over time memakai sumbu X berupa waktu sampel dan sumbu Y berupa
-error 2D dalam meter. Grafik ini menunjukkan kapan spike terjadi, sehingga
-penyebab RMSE pola L yang besar dapat ditelusuri secara visual.
+error 2D dalam meter. Grafik ini menunjukkan kapan lonjakan terjadi.
 
 ![CDF Pola L](docs/results/20260602_dataset_baru/cdf_l_test.png)
 
-CDF memakai sumbu X berupa error 2D dalam meter dan sumbu Y berupa proporsi
-kumulatif sampel. Kurva final yang lebih cepat naik menunjukkan bahwa lebih
-banyak sampel berada pada error kecil. Gambar perbandingan metode memakai sumbu
-X berupa metode dan sumbu Y berupa RMSE 2D dalam meter.
+CDF memakai sumbu X berupa error 2D dan sumbu Y berupa proporsi kumulatif
+sampel. Kurva final yang lebih cepat naik berarti lebih banyak sampel memiliki
+error kecil.
 
 ![Training dan Validation Loss Pola L](docs/results/20260602_dataset_baru/loss_l.png)
 
@@ -790,27 +812,24 @@ model mulai terlalu mengikuti data train.
 #### 5.8.2 Pola Segitiga
 
 Pola segitiga bergerak dari `(1,1)` ke `(1,3)`, lalu ke `(3,3)`, dan kembali ke
-`(1,1)`. Dibandingkan pola L, pola ini menghasilkan lintasan yang lebih stabil
-dan menjadi eksperimen tambahan terbaik pada dataset baru. EKF + LSTM
-menurunkan RMSE dari 13.69 cm menjadi 13.18 cm dan MAE dari 11.57 cm menjadi
-10.47 cm. Setelah trajectory constraint berdasarkan waypoint, MAE turun lagi
-menjadi 10.17 cm.
+`(1,1)`. Pola ini lebih stabil daripada pola L. EKF + LSTM menurunkan MAE dari
+11.57 cm menjadi 10.47 cm. Setelah trajectory constraint, MAE turun lagi menjadi
+10.17 cm.
 
 | Trajectory test `s3_1_5_gt` | Full trajectory segitiga |
 | --- | --- |
 | ![Trajectory Segitiga](docs/results/20260602_dataset_baru/trajectory_segitiga_test.png) | ![Full Trajectory Segitiga](docs/results/20260602_dataset_baru/full_trajectory_segitiga.png) |
 
 Gambar trajectory segitiga memakai sumbu X dan Y dalam meter dengan grid 0.5 m.
-Gambar test dipakai untuk evaluasi held-out, sedangkan full trajectory dipakai
-untuk ringkasan visual semua split.
+Gambar test dipakai untuk evaluasi data test terpisah. Full trajectory dipakai untuk
+melihat ringkasan visual semua split.
 
 | Error over time `s3_1_5_gt` | Perbandingan metode |
 | --- | --- |
 | ![Error Over Time Segitiga](docs/results/20260602_dataset_baru/error_over_time_segitiga_test.png) | ![Perbandingan Metode Segitiga](docs/results/20260602_dataset_baru/method_segitiga_test.png) |
 
 Gambar error over time memakai sumbu X berupa waktu sampel dan sumbu Y berupa
-error 2D dalam meter. Dua gambar ini menunjukkan bahwa estimasi mengikuti bentuk
-lintasan segitiga dan error relatif terkendali sepanjang test set.
+error 2D dalam meter.
 
 ![CDF Segitiga](docs/results/20260602_dataset_baru/cdf_segitiga_test.png)
 
@@ -831,18 +850,21 @@ memberi koreksi residual yang stabil tanpa indikasi leakage dari test set.
 
 ### 6.1 Interpretasi Hasil
 
-Hasil terbaru menunjukkan bahwa pipeline berlapis mampu meningkatkan akurasi
-lokalisasi UWB. Raw trilateration pada test set menghasilkan RMSE 2D sebesar
-24.95 cm. Setelah diproses menggunakan EKF, RMSE 2D turun menjadi 17.14 cm.
-Setelah ditambahkan LSTM residual correction, RMSE 2D turun lagi menjadi 11.25
-cm dan MAE 2D menjadi 9.50 cm.
+Hasil utama berasal dari eksperimen kotak 10-loop. Pada test set terpisah, raw
+trilateration menghasilkan RMSE 2D sebesar 24.95 cm. Setelah EKF, RMSE turun
+menjadi 17.14 cm. Setelah LSTM residual correction, RMSE turun lagi menjadi
+11.25 cm dan MAE menjadi 9.50 cm.
 
-Peningkatan ini menunjukkan bahwa EKF mampu menstabilkan estimasi posisi dari
-range UWB, sedangkan LSTM residual correction mampu mempelajari pola residual
-yang masih tersisa dari output EKF. Karena test set tidak digunakan saat
-training, peningkatan pada test set dapat dianggap sebagai peningkatan
-generalisasi, bukan akibat data leakage. Klaim di bawah 10 cm perlu ditulis
+Artinya, pipeline utama berhasil memperbaiki estimasi posisi tanpa data
+leakage. EKF menstabilkan estimasi dari range UWB, sedangkan LSTM memperbaiki
+residual yang masih tersisa dari output EKF. Klaim di bawah 10 cm perlu ditulis
 spesifik sebagai **MAE 2D 9.50 cm**, bukan RMSE 2D, karena RMSE masih 11.25 cm.
+
+Dataset baru pola L dan segitiga dibaca sebagai eksperimen tambahan. Hasilnya
+menunjukkan pipeline masih dapat dipakai pada pola lain, tetapi performanya
+lebih sensitif terhadap timing waypoint, belokan, start-stop, dan bias UWB di
+area tertentu. Karena itu, data `Diam` digunakan untuk menjelaskan kualitas
+sensor, bukan untuk memperbesar jumlah data trajectory.
 
 Jika kalimat "error di bawah 10 cm" digunakan di laporan, penulisannya harus
 diperjelas sebagai berikut:
@@ -985,7 +1007,7 @@ Output penting:
 
 Pipeline terbaru sudah memenuhi prinsip no-data-leakage dan memberikan evaluasi
 yang lebih valid. Pada hasil terbaik, metode **EKF + LSTM residual correction**
-menjadi metode terbaik pada test held-out `10lup2_trilat_gt` dengan RMSE 2D
+menjadi metode terbaik pada test terpisah `10lup2_trilat_gt` dengan RMSE 2D
 sebesar **0.1125 m** atau sekitar **11.25 cm**, serta MAE 2D sebesar **0.0950
 m** atau sekitar **9.50 cm**. Hasil ini lebih baik daripada raw trilateration
 sebesar **0.2495 m** dan EKF only sebesar **0.1714 m**.
