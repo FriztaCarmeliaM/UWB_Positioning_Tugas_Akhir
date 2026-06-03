@@ -32,12 +32,14 @@ def copy_artifacts() -> None:
             "error_over_time_L3_gt.png": "error_over_time_l_test.png",
             "test_error_cdf.png": "cdf_l_test.png",
             "test_method_comparison.png": "method_l_test.png",
+            "full_trajectory_comparison.png": "full_trajectory_l.png",
         },
         "Segitiga": {
             "trajectory_s3_1_5_gt.png": "trajectory_segitiga_test.png",
             "error_over_time_s3_1_5_gt.png": "error_over_time_segitiga_test.png",
             "test_error_cdf.png": "cdf_segitiga_test.png",
             "test_method_comparison.png": "method_segitiga_test.png",
+            "full_trajectory_comparison.png": "full_trajectory_segitiga.png",
         },
     }
     for label, run_dir in RUNS.items():
@@ -98,8 +100,8 @@ def draw_summary(metrics: pd.DataFrame) -> None:
     draw.text((right - 110, target_y - 24), "Target 10 cm", fill=red, font=small_font)
 
     groups = [
-        ("Pola L", ["Raw trilateration", "EKF only", "EKF + LSTM residual"]),
-        ("Segitiga", ["EKF only", "EKF + LSTM residual"]),
+        ("Pola L", ["Raw trilateration", "EKF + LSTM residual", "EKF + LSTM + trajectory constraint"]),
+        ("Segitiga", ["EKF only", "EKF + LSTM residual", "EKF + LSTM + trajectory constraint"]),
     ]
     x = left + 70
     bar_w = 34
@@ -118,7 +120,11 @@ def draw_summary(metrics: pd.DataFrame) -> None:
                 draw.rounded_rectangle((bx, by, bx + bar_w, bottom), radius=5, fill=color)
                 label = f"{value:.1f}"
                 draw.text((bx - 2, by - 22), label, fill=text, font=small_font)
-            model_label = model.replace("EKF + LSTM residual", "EKF+LSTM").replace("Raw trilateration", "Raw")
+            model_label = (
+                model.replace("EKF + LSTM + trajectory constraint", "Final")
+                .replace("EKF + LSTM residual", "EKF+LSTM")
+                .replace("Raw trilateration", "Raw")
+            )
             draw.text((x - 10, bottom + 18), model_label, fill=text, font=small_font)
             x += 130
         x += 80
@@ -139,7 +145,7 @@ def draw_summary(metrics: pd.DataFrame) -> None:
     )
     draw.text(
         (86, 792),
-        "Pola L: MAE raw 19.60 cm -> EKF+LSTM 15.76 cm. Segitiga: MAE EKF 11.57 cm -> EKF+LSTM 10.47 cm.",
+        "Pola L: MAE EKF+LSTM 15.76 cm -> final 10.39 cm. Segitiga: MAE EKF+LSTM 10.47 cm -> final 10.17 cm.",
         fill="#4b5563",
         font=text_font,
     )

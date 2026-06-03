@@ -68,6 +68,7 @@ def _available_methods(df: pd.DataFrame) -> list[tuple[str, str, str, bool]]:
         ),
         ("EKF only", "ekf_x", "ekf_y", True),
         ("EKF + LSTM residual", "lstm_x", "lstm_y", "lstm_x" in df.columns and "lstm_y" in df.columns),
+        ("EKF + LSTM + raw fallback", "hybrid_x", "hybrid_y", "hybrid_x" in df.columns and "hybrid_y" in df.columns),
         (
             "EKF + LSTM + trajectory constraint",
             "constraint_x",

@@ -12,6 +12,7 @@ COLORS = {
     "raw": "#9e9e9e",
     "ekf": "#d32f2f",
     "lstm": "#00796b",
+    "fallback": "#f59e0b",
     "constraint": "#1565c0",
     "grid": "#dddddd",
     "axis": "#333333",
@@ -47,6 +48,31 @@ def _labels(config: dict) -> dict[str, str]:
 
 def _safe_name(value: str) -> str:
     return value.replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_")
+
+
+def _short_model_label(value: str) -> str:
+    return {
+        "Raw trilateration": "Raw",
+        "Legacy position KF": "Legacy KF",
+        "EKF only": "EKF",
+        "EKF + LSTM residual": "EKF+LSTM",
+        "EKF + LSTM + raw fallback": "Fallback",
+        "EKF + LSTM + trajectory constraint": "Final",
+    }.get(value, value)
+
+
+def _model_color(value: str) -> str:
+    if value == "Raw trilateration":
+        return COLORS["raw"]
+    if value == "EKF only":
+        return COLORS["ekf"]
+    if value == "EKF + LSTM residual":
+        return COLORS["lstm"]
+    if value == "EKF + LSTM + raw fallback":
+        return COLORS["fallback"]
+    if value == "EKF + LSTM + trajectory constraint":
+        return COLORS["constraint"]
+    return COLORS["axis"]
 
 
 def _font(size: int = 14) -> ImageFont.ImageFont:
@@ -308,10 +334,11 @@ def plot_metric_bars(metrics: pd.DataFrame, path: Path) -> None:
         x_center = plot["left"] + (i + 0.5) * (plot["right"] - plot["left"]) / len(test)
         value = float(row["rmse_2d_m"])
         bar_top = plot["bottom"] - value / max_value * (plot["bottom"] - plot["top"] - 30)
-        color = [COLORS["ekf"], COLORS["lstm"], COLORS["constraint"]][i % 3]
+        color = _model_color(str(row["model"]))
         draw.rectangle([x_center - bar_width / 2, bar_top, x_center + bar_width / 2, plot["bottom"]], fill=color)
         draw.text((x_center - 25, bar_top - 22), f"{value:.3f}", fill="#111111", font=font)
-        draw.text((x_center - 65, plot["bottom"] + 18), str(row["model"])[:22], fill="#111111", font=font)
+        label = _short_model_label(str(row["model"]))
+        draw.text((x_center - 28, plot["bottom"] + 18), label, fill="#111111", font=font)
     image.save(path)
 
 
