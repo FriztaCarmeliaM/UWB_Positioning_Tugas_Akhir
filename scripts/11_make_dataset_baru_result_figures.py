@@ -9,9 +9,21 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "results" / "20260602_dataset_baru"
+
+
+def latest_run(base_dir: str) -> Path:
+    latest = ROOT / "outputs" / base_dir / "latest_run.txt"
+    if not latest.exists():
+        raise FileNotFoundError(f"Missing latest run marker: {latest}")
+    run_dir = Path(latest.read_text(encoding="utf-8").strip())
+    if not run_dir.exists():
+        raise FileNotFoundError(f"Latest run directory does not exist: {run_dir}")
+    return run_dir
+
+
 RUNS = {
-    "Pola L": ROOT / "outputs" / "uwb_dataset_baru_l_pipeline" / "20260602_220906",
-    "Segitiga": ROOT / "outputs" / "uwb_dataset_baru_segitiga_pipeline" / "20260602_221314",
+    "Pola L": latest_run("uwb_dataset_baru_l_pipeline"),
+    "Segitiga": latest_run("uwb_dataset_baru_segitiga_pipeline"),
 }
 
 
@@ -35,8 +47,8 @@ def copy_artifacts() -> None:
             "full_trajectory_comparison.png": "full_trajectory_l.png",
         },
         "Segitiga": {
-            "trajectory_s3_1_5_gt.png": "trajectory_segitiga_test.png",
-            "error_over_time_s3_1_5_gt.png": "error_over_time_segitiga_test.png",
+            "trajectory_segitiga3_gt.png": "trajectory_segitiga_test.png",
+            "error_over_time_segitiga3_gt.png": "error_over_time_segitiga_test.png",
             "test_error_cdf.png": "cdf_segitiga_test.png",
             "test_method_comparison.png": "method_segitiga_test.png",
             "full_trajectory_comparison.png": "full_trajectory_segitiga.png",
@@ -78,10 +90,14 @@ def draw_summary(metrics: pd.DataFrame) -> None:
     blue, green, red = "#2563eb", "#059669", "#dc2626"
     grid, axis, text = "#d1d5db", "#94a3b8", "#111827"
 
+    def mae(pattern: str, model: str) -> float:
+        part = metrics[(metrics["pattern"] == pattern) & (metrics["model"] == model)]
+        return float(part.iloc[0]["mae_cm"]) if not part.empty else float("nan")
+
     draw.text((60, 42), "Hasil Dataset Baru: Pola L dan Segitiga", fill=text, font=title_font)
     draw.text(
         (60, 82),
-        "Ground truth dibuat dari target_x/target_y sebagai timestamp waypoint detail | test held-out per pola",
+        "Ground truth dibuat dari target_x/target_y sebagai timestamp waypoint detail | test terpisah per pola",
         fill="#4b5563",
         font=text_font,
     )
@@ -139,13 +155,18 @@ def draw_summary(metrics: pd.DataFrame) -> None:
     draw.rounded_rectangle(box, radius=10, outline="#cbd5e1", fill="#f8fafc", width=2)
     draw.text(
         (86, 762),
-        "Interpretasi: dataset baru menambah validasi pola L dan segitiga. LSTM residual menurunkan MAE pada kedua pola.",
+        "Interpretasi: dataset baru menambah validasi pola L dan segitiga. Hasil final menurunkan MAE pada kedua pola.",
         fill=text,
         font=bold_font,
     )
     draw.text(
         (86, 792),
-        "Pola L: MAE EKF+LSTM 15.76 cm -> final 10.39 cm. Segitiga: MAE EKF+LSTM 10.47 cm -> final 10.17 cm.",
+        (
+            f"Pola L: MAE EKF+LSTM {mae('Pola L', 'EKF + LSTM residual'):.2f} cm -> "
+            f"final {mae('Pola L', 'EKF + LSTM + trajectory constraint'):.2f} cm. "
+            f"Segitiga: MAE EKF+LSTM {mae('Segitiga', 'EKF + LSTM residual'):.2f} cm -> "
+            f"final {mae('Segitiga', 'EKF + LSTM + trajectory constraint'):.2f} cm."
+        ),
         fill="#4b5563",
         font=text_font,
     )

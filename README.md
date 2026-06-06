@@ -739,24 +739,25 @@ bias sekitar -11 cm dan p95 absolute error sekitar 17 cm.
 
 Split evaluasi tetap no-data-leakage. Untuk pola L, `L1_gt` dan `L2_gt`
 dipakai sebagai train/validation, sedangkan `L3_gt` dipakai sebagai test. Untuk
-segitiga, `s3_1_3_gt` dan `s3_1_4_gt` dipakai sebagai train/validation,
-sedangkan `s3_1_5_gt` dipakai sebagai test. Test set tidak dipakai saat
+segitiga, `segitiga1_gt` dan `segitiga2_gt` dipakai sebagai train/validation,
+sedangkan `segitiga3_gt` dipakai sebagai test. Test set tidak dipakai saat
 kalibrasi, optimasi anchor, fitting scaler, training LSTM, atau pemilihan model.
 
-Pada pola L, file data sudah memiliki kolom posisi raw trilaterasi, sehingga
-tabel dapat menampilkan `Raw trilateration`. Pada pola segitiga, file data belum
-memiliki kolom `x/y` raw trilaterasi, sehingga evaluasi dimulai dari EKF.
+Pada update terbaru, pola L dan segitiga sama-sama sudah memiliki kolom `x/y`
+raw trilaterasi. Karena itu tabel sekarang bisa menampilkan baseline `Raw
+trilateration` untuk kedua pola.
 
 | Pola | Test set | Metode | RMSE 2D | MAE 2D | Error < 10 cm | Error < 20 cm | Catatan |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
-| L | `L3_gt` | Raw trilateration | 22.69 cm | 19.60 cm | 24.52% | 51.53% | Baseline dari posisi trilaterasi data. |
-| L | `L3_gt` | EKF only | 42.14 cm | 19.80 cm | 41.35% | 69.98% | Lebih stabil pada banyak sampel, tetapi RMSE membesar karena spike besar. |
-| L | `L3_gt` | EKF + LSTM residual | 39.42 cm | 15.76 cm | 48.04% | 90.13% | MAE membaik, tetapi masih ada bagian yang melenceng di akhir lintasan. |
-| L | `L3_gt` | EKF + LSTM + raw fallback | 12.89 cm | 10.98 cm | 48.74% | 91.24% | Fallback memakai raw trilaterasi terfilter saat EKF/LSTM melenceng jauh. |
-| L | `L3_gt` | EKF + LSTM + trajectory constraint | 12.62 cm | 10.39 cm | 51.34% | 91.92% | Hasil final pola L dengan constraint lintasan waypoint. |
-| Segitiga | `s3_1_5_gt` | EKF only | 13.69 cm | 11.57 cm | 50.03% | 84.73% | Baseline estimasi pada pola segitiga. |
-| Segitiga | `s3_1_5_gt` | EKF + LSTM residual | 13.18 cm | 10.47 cm | 58.51% | 85.11% | Membaik dari EKF sebelum constraint. |
-| Segitiga | `s3_1_5_gt` | EKF + LSTM + trajectory constraint | 13.05 cm | 10.17 cm | 59.55% | 85.25% | Hasil final segitiga dengan constraint lintasan waypoint. |
+| L | `L3_gt` | Raw trilateration | 22.50 cm | 19.49 cm | 24.37% | 51.85% | Baseline dari posisi trilaterasi data. |
+| L | `L3_gt` | EKF only | 42.16 cm | 19.60 cm | 41.01% | 70.47% | Banyak sampel stabil, tetapi ada bagian yang melenceng besar. |
+| L | `L3_gt` | EKF + LSTM residual | 43.58 cm | 22.20 cm | 35.42% | 74.92% | Pada pola L, LSTM residual belum memperbaiki hasil karena EKF sudah melenceng jauh. |
+| L | `L3_gt` | EKF + LSTM + raw fallback | 14.35 cm | 12.50 cm | 40.52% | 87.39% | Fallback memakai raw trilaterasi terfilter saat EKF/LSTM melenceng jauh. |
+| L | `L3_gt` | EKF + LSTM + trajectory constraint | 12.64 cm | 10.72 cm | 48.82% | 92.15% | Hasil final pola L dengan constraint lintasan waypoint. |
+| Segitiga | `segitiga3_gt` | Raw trilateration | 18.24 cm | 15.10 cm | 38.21% | 72.82% | Baseline raw trilaterasi segitiga. |
+| Segitiga | `segitiga3_gt` | EKF only | 13.69 cm | 11.57 cm | 50.03% | 84.73% | EKF memperbaiki raw trilaterasi. |
+| Segitiga | `segitiga3_gt` | EKF + LSTM residual | 12.31 cm | 9.82 cm | 60.73% | 87.98% | LSTM residual sudah masuk MAE di bawah 10 cm. |
+| Segitiga | `segitiga3_gt` | EKF + LSTM + trajectory constraint | 12.14 cm | 9.46 cm | 61.78% | 88.22% | Hasil final segitiga dengan constraint lintasan waypoint. |
 
 Cara membaca tabel:
 
@@ -764,7 +765,7 @@ Cara membaca tabel:
    EKF/LSTM biasa terlihat buruk walaupun raw trajectory secara visual cukup
    rapi.
 2. `raw fallback` hanya aktif saat posisi EKF/LSTM terlalu jauh dari raw
-   trilaterasi terfilter. Pada test pola L, fallback aktif sekitar 2.46% sampel.
+   trilaterasi terfilter.
 3. `trajectory constraint` memproyeksikan estimasi akhir ke lintasan waypoint
    yang memang sudah ditentukan saat eksperimen. Ini dipakai sebagai batas
    lintasan terstruktur, bukan untuk mengubah ground truth.
@@ -780,7 +781,7 @@ adalah hasil setelah fallback dan/atau trajectory constraint.
 Pola L bergerak dari `(1,1)` ke `(1,3)`, kembali ke `(1,1)`, lalu ke `(3,1)`
 dan kembali lagi ke `(1,1)`. Hasil awal EKF/LSTM belum stabil karena ada bagian
 akhir lintasan yang melenceng jauh. Setelah raw fallback dan trajectory
-constraint, MAE test turun dari 15.76 cm menjadi 10.39 cm.
+constraint, MAE test turun dari 22.20 cm menjadi 10.72 cm.
 
 | Trajectory test `L3_gt` | Full trajectory pola L |
 | --- | --- |
@@ -812,11 +813,12 @@ model mulai terlalu mengikuti data train.
 #### 5.8.2 Pola Segitiga
 
 Pola segitiga bergerak dari `(1,1)` ke `(1,3)`, lalu ke `(3,3)`, dan kembali ke
-`(1,1)`. Pola ini lebih stabil daripada pola L. EKF + LSTM menurunkan MAE dari
-11.57 cm menjadi 10.47 cm. Setelah trajectory constraint, MAE turun lagi menjadi
-10.17 cm.
+`(1,1)`. Pola ini lebih stabil daripada pola L. Raw trilaterasi menghasilkan
+MAE 15.10 cm. Setelah EKF, MAE turun menjadi 11.57 cm. Setelah EKF + LSTM,
+MAE turun menjadi 9.82 cm. Setelah trajectory constraint, MAE final menjadi
+9.46 cm.
 
-| Trajectory test `s3_1_5_gt` | Full trajectory segitiga |
+| Trajectory test `segitiga3_gt` | Full trajectory segitiga |
 | --- | --- |
 | ![Trajectory Segitiga](docs/results/20260602_dataset_baru/trajectory_segitiga_test.png) | ![Full Trajectory Segitiga](docs/results/20260602_dataset_baru/full_trajectory_segitiga.png) |
 
@@ -824,7 +826,7 @@ Gambar trajectory segitiga memakai sumbu X dan Y dalam meter dengan grid 0.5 m.
 Gambar test dipakai untuk evaluasi data test terpisah. Full trajectory dipakai untuk
 melihat ringkasan visual semua split.
 
-| Error over time `s3_1_5_gt` | Perbandingan metode |
+| Error over time `segitiga3_gt` | Perbandingan metode |
 | --- | --- |
 | ![Error Over Time Segitiga](docs/results/20260602_dataset_baru/error_over_time_segitiga_test.png) | ![Perbandingan Metode Segitiga](docs/results/20260602_dataset_baru/method_segitiga_test.png) |
 
@@ -834,9 +836,9 @@ error 2D dalam meter.
 ![CDF Segitiga](docs/results/20260602_dataset_baru/cdf_segitiga_test.png)
 
 CDF segitiga menunjukkan proporsi kumulatif error. Persentase sampel di bawah
-10 cm naik dari 50.03% pada EKF menjadi 58.51% setelah LSTM residual dan 59.55%
-setelah trajectory constraint. Grafik perbandingan metode memperlihatkan
-penurunan RMSE 2D dari EKF ke hasil final.
+10 cm naik dari 38.21% pada raw trilaterasi menjadi 60.73% setelah LSTM residual
+dan 61.78% setelah trajectory constraint. Grafik perbandingan metode
+memperlihatkan penurunan RMSE 2D dari raw ke hasil final.
 
 ![Training dan Validation Loss Segitiga](docs/results/20260602_dataset_baru/loss_segitiga.png)
 

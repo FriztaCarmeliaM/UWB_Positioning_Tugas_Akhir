@@ -2,9 +2,9 @@ random_seed: 42
 
 data:
   csv_paths:
-    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_3_gt.csv"
-    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_4_gt.csv"
-    - "Data eksperimen/dataset_baru_target_ground_truth/s3_1_5_gt.csv"
+    - "Data eksperimen/dataset_baru_target_ground_truth/segitiga1_gt.csv"
+    - "Data eksperimen/dataset_baru_target_ground_truth/segitiga2_gt.csv"
+    - "Data eksperimen/dataset_baru_target_ground_truth/segitiga3_gt.csv"
   sort_by_time: true
   static_calibration_tracks: []
 
@@ -31,9 +31,9 @@ anchors:
 
 split:
   strategy: "by_track"
-  train_tracks: ["s3_1_3_gt", "s3_1_4_gt"]
+  train_tracks: ["segitiga1_gt", "segitiga2_gt"]
   validation_tracks: []
-  test_tracks: ["s3_1_5_gt"]
+  test_tracks: ["segitiga3_gt"]
   validation_within_train_ratio: 0.15
 
 range_calibration: {enabled: true, method: "huber", min_samples_per_anchor: 50, min_robust_samples: 200}
