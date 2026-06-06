@@ -4,4 +4,9 @@ __pycache__/
 # Full pipeline runs can be large. Curated result snapshots for README live in
 # docs/results/ and are intentionally tracked.
 outputs/
+output_lstm_no_leakage_*/
 
+# Diagnostic/reference dataset variants generated from original CSVs. These are
+# for local analysis only and must not be used as final thesis evidence unless
+# explicitly documented.
+Data eksperimen/

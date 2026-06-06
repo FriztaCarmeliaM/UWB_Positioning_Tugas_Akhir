@@ -91,6 +91,13 @@ ekf:
   default_dt: 0.05
   max_dt: 0.25
   enable_gating: true
+  # Anti-divergence guard: caps robot speed and re-anchors the filter to the
+  # instantaneous multilateration (raw) solution if it drifts > reset_distance_m.
+  # Uses measurements only (never ground truth); only triggers on true divergence.
+  max_speed_mps: 1.5
+  reset_distance_m: 1.0
+  reset_position_std: 0.5
+  raw_reset_window: 5
 
 ekf_tuning:
   process_noise_accel: [0.03, 0.06, 0.10, 0.20, 0.35]

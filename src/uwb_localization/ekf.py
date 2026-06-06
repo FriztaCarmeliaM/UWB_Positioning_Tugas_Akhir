@@ -20,6 +20,16 @@ class EKFParams:
     default_dt: float = 0.05
     max_dt: float = 0.25
     enable_gating: bool = True
+    # --- Anti-divergence guard (physical / measurement-based, NOT ground truth) ---
+    # The constant-velocity model can "coast off" during sharp turns when many
+    # measurements are gated out. These guards keep the filter physically plausible
+    # and re-anchor it to the instantaneous multilateration (raw) solution when it
+    # clearly runs away. Disabled (inf) by default so existing runs are unchanged
+    # unless a config opts in.
+    max_speed_mps: float = float("inf")
+    reset_distance_m: float = float("inf")
+    reset_position_std: float = 0.5
+    raw_reset_window: int = 5
 
 
 def ekf_params_from_config(config: dict[str, Any]) -> EKFParams:
@@ -34,6 +44,10 @@ def ekf_params_from_config(config: dict[str, Any]) -> EKFParams:
         default_dt=float(cfg.get("default_dt", 0.05)),
         max_dt=float(cfg.get("max_dt", 0.25)),
         enable_gating=bool(cfg.get("enable_gating", True)),
+        max_speed_mps=float(cfg.get("max_speed_mps", float("inf"))),
+        reset_distance_m=float(cfg.get("reset_distance_m", float("inf"))),
+        reset_position_std=float(cfg.get("reset_position_std", 0.5)),
+        raw_reset_window=int(cfg.get("raw_reset_window", 5)),
     )
 
 
@@ -213,6 +227,22 @@ def _update(
     }
 
 
+def _raw_reset_reference(df: pd.DataFrame, window: int) -> tuple[np.ndarray, np.ndarray] | None:
+    """Robust (median-filtered) raw multilateration position used only as a
+    measurement-based recovery target when the EKF diverges. Uses raw_x/raw_y
+    (an instantaneous, model-free position estimate), never the ground truth."""
+    if "raw_x" not in df.columns or "raw_y" not in df.columns:
+        return None
+    raw_x = pd.to_numeric(df["raw_x"], errors="coerce")
+    raw_y = pd.to_numeric(df["raw_y"], errors="coerce")
+    if not (np.isfinite(raw_x).any() and np.isfinite(raw_y).any()):
+        return None
+    w = max(int(window), 1)
+    ref_x = raw_x.rolling(w, center=True, min_periods=1).median().to_numpy(dtype=float)
+    ref_y = raw_y.rolling(w, center=True, min_periods=1).median().to_numpy(dtype=float)
+    return ref_x, ref_y
+
+
 def run_ekf_track(track_df: pd.DataFrame, anchors: dict[str, dict[str, float]], config: dict[str, Any]) -> pd.DataFrame:
     params = ekf_params_from_config(config)
     anchor_ids = list(anchors.keys())
@@ -228,9 +258,11 @@ def run_ekf_track(track_df: pd.DataFrame, anchors: dict[str, dict[str, float]], 
         ]
     )
 
+    raw_ref = _raw_reset_reference(df, params.raw_reset_window)
+
     rows = []
     previous_time = None
-    for _, row in df.iterrows():
+    for position_index, (_, row) in enumerate(df.iterrows()):
         if previous_time is None or "time" not in df.columns:
             dt = params.default_dt
         else:
@@ -259,6 +291,37 @@ def run_ekf_track(track_df: pd.DataFrame, anchors: dict[str, dict[str, float]], 
                 "updated": 0.0,
             }
 
+        # --- Anti-divergence guard -------------------------------------------------
+        # 1) Velocity clamp: a ground robot cannot exceed a physical max speed, so
+        #    cap the velocity state to stop the CV model from coasting away.
+        guard_reset = 0.0
+        if np.isfinite(params.max_speed_mps):
+            speed = float(np.hypot(state[2], state[3]))
+            if speed > params.max_speed_mps and speed > 1e-9:
+                scale = params.max_speed_mps / speed
+                state[2] *= scale
+                state[3] *= scale
+        # 2) Raw-consistency reset: if the filter position drifts farther than
+        #    reset_distance_m from the instantaneous multilateration (raw) solution,
+        #    re-initialise the filter at that raw solution with inflated covariance.
+        #    This re-anchors a diverged filter to the measurements (not the GT).
+        if np.isfinite(params.reset_distance_m) and raw_ref is not None:
+            ref_x = raw_ref[0][position_index]
+            ref_y = raw_ref[1][position_index]
+            if np.isfinite(ref_x) and np.isfinite(ref_y):
+                drift = float(np.hypot(state[0] - ref_x, state[1] - ref_y))
+                if drift > params.reset_distance_m:
+                    state = np.array([ref_x, ref_y, 0.0, 0.0], dtype=float)
+                    cov = np.diag(
+                        [
+                            params.reset_position_std**2,
+                            params.reset_position_std**2,
+                            params.initial_velocity_std**2,
+                            params.initial_velocity_std**2,
+                        ]
+                    )
+                    guard_reset = 1.0
+
         out = row.to_dict()
         out.update(
             {
@@ -267,6 +330,7 @@ def run_ekf_track(track_df: pd.DataFrame, anchors: dict[str, dict[str, float]], 
                 "ekf_y": float(state[1]),
                 "ekf_vx": float(state[2]),
                 "ekf_vy": float(state[3]),
+                "ekf_guard_reset": guard_reset,
                 "ekf_cov_x": float(cov[0, 0]),
                 "ekf_cov_y": float(cov[1, 1]),
                 "ekf_cov_vx": float(cov[2, 2]),

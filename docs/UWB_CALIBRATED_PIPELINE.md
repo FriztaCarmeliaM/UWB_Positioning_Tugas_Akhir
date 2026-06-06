@@ -249,6 +249,13 @@ h_i(x, y) = sqrt((x - ax_i)^2 + (y - ay_i)^2) + bias_i
 
 - Mendukung Jacobian, process noise, measurement noise, innovation gating, dan
   outlier rejection.
+- **Guard anti-divergensi (update 2026-06-06):** membatasi kecepatan ke
+  `max_speed_mps` dan, bila posisi filter menyimpang lebih dari
+  `reset_distance_m` dari solusi multilaterasi instan (`raw_x`, `raw_y`),
+  mengembalikan state ke solusi raw tersebut dengan kovarians diperbesar. Guard
+  hanya memakai pengukuran (bukan ground truth) dan hanya aktif saat divergensi
+  sejati (mis. pola L). Pada kotak/segitiga ia tidak pernah aktif, sehingga
+  hasilnya tidak berubah. Parameter ada di blok `ekf` pada config.
 
 Output:
 
