@@ -7,6 +7,17 @@ berbasis waypoint, kalibrasi range, preprocessing range, optimasi anchor, EKF
 berbasis pengukuran jarak langsung, LSTM residual correction, evaluasi, dan
 plotting.
 
+> **Cara membaca dokumen ini.** Dokumen disusun runtut dari gambaran besar ke
+> detail: **ringkasan hasil** (bagian ini) → **abstrak & pendahuluan** (§1–§2:
+> latar belakang dan target) → **dataset & metodologi** (§3–§4: apa datanya dan
+> bagaimana diproses) → **hasil eksperimen** (§5: angka + gambar, termasuk
+> *track record* tuning dari awal sampai final) → **diskusi & analisis batas
+> bawah error** (§6: termasuk jawaban target 5 cm / 3 cm) → **cara menjalankan**
+> (§7) → **kesimpulan & referensi** (§8–§9). Setiap istilah teknis (UWB, anchor,
+> EKF, NLOS, GDOP, cross/along-track, dsb.) dijelaskan di
+> [Lampiran A: Glossary](#lampiran-a-glossary-istilah-teknis). Pembaca yang ingin
+> cepat cukup membaca ringkasan ini, lalu §5.3 (hasil utama) dan §6 (analisis).
+
 > **UPDATE 2026-06-06 — semua pola utama sekarang MAE 2D test < 10 cm, tanpa data leakage.**
 >
 > Perbaikan kunci pada update ini adalah **guard anti-divergensi EKF**: filter
@@ -40,9 +51,11 @@ MAE final turun ke **8.81 cm** (lihat [§5.8](#58-eksperimen-dataset-baru-pola-l
 
 ![Ringkasan MAE semua pola](docs/results/20260606_final/summary_mae_all_patterns.png)
 
-Gambar di atas: MAE 2D test untuk tiap pola dan metode. Sumbu X = pola, sumbu Y =
-MAE dalam cm, garis merah = target 10 cm. Semua bar EKF+LSTM dan Final berada di
-atau di bawah garis target.
+**Gambar di atas — MAE 2D test untuk tiap pola dan metode.** Sumbu X = pola,
+sumbu Y = MAE dalam cm, garis merah = target 10 cm. *Yang harus diperhatikan:*
+untuk setiap pola, tinggi bar menurun dari Raw → EKF → EKF+LSTM (→ Final),
+artinya tiap tahap pipeline menambah perbaikan. *Kesimpulan:* semua bar EKF+LSTM
+dan Final berada di atau di bawah garis target 10 cm.
 
 Cara membaca README ini:
 
@@ -63,6 +76,13 @@ Catatan metrik: **MAE 2D** adalah rata-rata error posisi per sampel. **RMSE
 2D** lebih sensitif terhadap lonjakan besar, sehingga nilainya bisa lebih tinggi
 walaupun sebagian besar titik sudah dekat. Klaim "di bawah 10 cm" pada hasil
 utama merujuk pada **MAE 2D = 9.50 cm** di test set terpisah.
+
+> **Contoh kecil MAE vs RMSE.** Misalkan 4 sampel punya error 8, 9, 9, dan 30 cm.
+> MAE = (8+9+9+30)/4 = **14 cm**, sedangkan RMSE = √((8²+9²+9²+30²)/4) ≈ **17.6
+> cm**. Satu lonjakan 30 cm menarik RMSE jauh lebih tinggi daripada MAE. Itulah
+> sebabnya pada hasil kami **MAE bisa < 10 cm sementara RMSE masih ~11–12 cm**:
+> mayoritas titik sudah dekat, tetapi ada sedikit *spike* yang "dihukum" berat
+> oleh RMSE. Kami melaporkan keduanya apa adanya.
 
 > **Analisis batas bawah error (tambahan terbaru).** Pertanyaan dosen "bisakah
 > 5 cm / 3 cm?" kini dijawab secara **kuantitatif** lewat *error budget* di
@@ -117,6 +137,7 @@ utama merujuk pada **MAE 2D = 9.50 cm** di test set terpisah.
   - [7.3 Output Pipeline](#73-output-pipeline)
 - [8. Kesimpulan](#8-kesimpulan)
 - [9. Referensi File Penting](#9-referensi-file-penting)
+- [Lampiran A: Glossary Istilah Teknis](#lampiran-a-glossary-istilah-teknis)
 
 ---
 
@@ -149,6 +170,10 @@ Kalman Filter, LSTM residual correction, no data leakage, trajectory evaluation.
 
 ## 2. Pendahuluan
 
+> *Tujuan bagian ini:* menjelaskan **mengapa** masalah ini penting (kenapa UWB,
+> kenapa trilaterasi mentah belum cukup), apa **tujuan** penelitian, dan
+> bagaimana posisi **target akurasi 5 cm** sejak awal.
+
 ### 2.1 Latar Belakang
 
 Ultra-Wideband (UWB) sering digunakan untuk lokalisasi indoor karena mampu
@@ -158,6 +183,15 @@ NLOS, perbedaan tinggi antara tag dan anchor, kesalahan posisi anchor, noise
 temporal, serta lonjakan pembacaan pada kondisi tertentu. Oleh karena itu,
 estimasi posisi langsung dari trilaterasi raw range sering belum cukup stabil
 untuk menghasilkan posisi robot yang akurat.
+
+> **Analogi sederhana.** Bayangkan kita ingin tahu posisi seseorang hanya dari
+> *jaraknya* ke tiga tiang yang posisinya sudah kita ketahui. Setiap jarak
+> menggambar satu lingkaran; perpotongan ketiga lingkaran memberi posisi orang
+> itu — inilah **trilaterasi**. Masalahnya, jarak UWB sedikit "meleset" (karena
+> pantulan sinyal/NLOS, beda tinggi, dan noise), sehingga ketiga lingkaran tidak
+> berpotongan di satu titik bersih, melainkan membentuk segitiga kecil yang
+> berubah-ubah tiap waktu. **EKF dan LSTM bertugas merapikan posisi** dari
+> jarak-jarak yang meleset ini menjadi lintasan yang halus dan dekat ke kebenaran.
 
 Pada eksperimen terbaru, robot bergerak pada lintasan persegi dengan waypoint
 fisik `(1,1)`, `(3,1)`, `(3,3)`, dan `(1,3)`. Ground truth tidak dibentuk dari
@@ -212,6 +246,10 @@ absolut per sampel.
 ---
 
 ## 3. Dataset dan Struktur Repository
+
+> *Tujuan bagian ini:* memperkenalkan **data mentah apa** yang dipakai (file,
+> kolom, pola lintasan, posisi anchor), **mengapa** memakai jarak datar `el`
+> alih-alih jarak miring `d`, dan **di mana** kode serta snapshot hasil berada.
 
 ### 3.1 Dataset
 
@@ -333,6 +371,36 @@ configs/uwb_pipeline_10loop_moretrain.yaml
 
 ## 4. Metodologi
 
+> *Tujuan bagian ini:* menjelaskan **setiap tahap pipeline** dari data mentah
+> sampai estimasi posisi akhir, beserta alasan ilmiah tiap pilihan desain
+> (mengapa split per sesi, mengapa EKF, mengapa LSTM hanya mengoreksi residual).
+
+Alur pipeline secara keseluruhan dapat digambarkan sebagai berikut:
+
+```text
+ Data UWB mentah (d1, d2, d3)
+        |  koreksi beda tinggi (Pythagoras)
+        v
+ Jarak datar (el1, el2, el3)
+        |  §4.1  split per sesi -> train / val / test  (no-leakage)
+        v
+ §4.2  Kalibrasi range per anchor  (d_cal = a*d + b, fit di train saja)
+        |
+        v
+ §4.3  Optimasi anchor  (koreksi kecil posisi/bias, dibatasi, train saja)
+        |
+        v
+ §4.4  EKF berbasis range  -->  posisi (x,y) halus + guard anti-divergensi
+        |
+        v
+ §4.5  LSTM residual  -->  posisi akhir = EKF + koreksi sisa (residual)
+        |
+        v
+ §4.6  Evaluasi (MAE / RMSE / CDF)  + (opsional) constraint jalur
+```
+
+Tiap kotak dijelaskan detail pada subbagian di bawah.
+
 ### 4.1 Data Loading dan Split No-Leakage
 
 Pipeline membaca seluruh file CSV, menstandardisasi nama kolom, memvalidasi
@@ -360,6 +428,14 @@ Jika baris diacak, sampel train dan test bisa berasal dari loop yang sama dan
 berdekatan waktunya. Kondisi tersebut membuat hasil terlihat sangat bagus,
 tetapi tidak membuktikan kemampuan model pada sesi pengambilan data baru yang
 benar-benar terpisah.
+
+> **Contoh konkret kebocoran data (*data leakage*).** Andai 8.000 baris dari satu
+> loop diacak, lalu 80% masuk train dan 20% masuk test. Karena sampel pada detik
+> ke-5 dan ke-6 hampir identik (robot baru bergerak beberapa cm), model "melihat"
+> tetangga dekat dari test saat training — seperti **ujian dengan bocoran soal**.
+> Hasilnya bisa terlihat 3–4 cm, padahal palsu. Dengan memakai **sesi/hari
+> pengambilan yang berbeda** sebagai test (cara kami), model benar-benar diuji
+> pada kondisi yang belum pernah dilihat, sehingga angka yang keluar sah dipercaya.
 
 ### 4.2 Kalibrasi Range per Anchor
 
@@ -450,6 +526,15 @@ menjaga gerakan tetap halus, sedangkan update step tetap mengikuti pembacaan
 range UWB. Innovation gating membantu menolak pengukuran yang terlalu jauh dari
 prediksi model gerak.
 
+> **Intuisi EKF (prediksi–koreksi).** EKF bekerja seperti orang menebak posisi
+> sambil berjalan. **(1) Prediksi:** "satu langkah lalu saya di sini dan bergerak
+> ke arah ini, jadi sekarang kira-kira di sana". **(2) Koreksi:** lalu ia melihat
+> pembacaan jarak UWB dan menggeser tebakannya sedikit ke arah yang konsisten
+> dengan pengukuran. Seberapa besar pergeseran diatur oleh *kepercayaan* pada
+> model gerak (`process_noise`) versus pada sensor (`measurement_noise`). Karena
+> posisi tidak ditebak ulang dari nol tiap waktu, hasilnya jauh lebih halus dan
+> tahan terhadap satu-dua pembacaan yang meleset.
+
 #### 4.4.1 Guard Anti-Divergensi (update 2026-06-06)
 
 Model constant-velocity memiliki kelemahan: pada belokan tajam, banyak
@@ -517,6 +602,14 @@ hanya mempelajari pola sisa error yang konsisten, misalnya bias lokal pada
 segmen tertentu. Strategi ini lebih aman daripada meminta LSTM langsung
 memprediksi `x,y` absolut dari data UWB mentah.
 
+> **Intuisi koreksi residual.** Daripada menyuruh LSTM "tebak posisi dari nol"
+> (sulit dan rawan ngawur), kita biarkan EKF memberi tebakan yang sudah bagus,
+> lalu LSTM hanya menjawab pertanyaan yang jauh lebih mudah: *"di segmen ini, EKF
+> biasanya meleset ke arah mana dan berapa?"* Misalnya bila di sisi kanan lintasan
+> EKF cenderung meleset 6 cm ke kanan, LSTM belajar menariknya kembali 6 cm.
+> Output LSTM dibatasi (`residual_clip_m`) agar koreksi tetap masuk akal dan tidak
+> malah memperburuk.
+
 ### 4.6 Evaluasi dan Visualisasi
 
 Metrik yang dilaporkan:
@@ -543,6 +636,11 @@ konservatif RMSE dan rata-rata error MAE secara jelas.
 ---
 
 ## 5. Hasil Eksperimen Terbaru
+
+> *Tujuan bagian ini:* menampilkan **angka dan gambar** secara transparan,
+> termasuk **track record** percobaan tuning dari awal sampai final (§5.4),
+> breakdown error per segmen lintasan (§5.6), dan perluasan ke pola L/segitiga
+> (§5.8). Semua klaim angka diambil dari **test set held-out** (sesi terpisah).
 
 ### 5.1 Split Eksperimen
 
@@ -842,10 +940,9 @@ Pada update terbaru, pola L dan segitiga sama-sama sudah memiliki kolom `x/y`
 raw trilaterasi. Karena itu tabel sekarang bisa menampilkan baseline `Raw
 trilateration` untuk kedua pola.
 
-| Pola | Test set | Metode | RMSE 2D | MAE 2D | Error < 10 cm | Error < 20 cm | Catatan |
-| --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 Tabel berikut adalah hasil **run terpadu 2026-06-06** dengan guard anti-divergensi
-aktif. Untuk perbandingan, nilai lama (sebelum guard) dituliskan di kolom catatan.
+aktif. Kolom **Catatan** sengaja menuliskan nilai lama (sebelum guard) sebagai
+pembanding, sehingga jejak perbaikan tetap terlihat jelas dalam satu tabel.
 
 | Pola | Test set | Metode | RMSE 2D | MAE 2D | Error < 10 cm | Error < 20 cm | Catatan |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -982,6 +1079,11 @@ disimpan di `docs/results/20260606_timing_diagnostic/`.
 ---
 
 ## 6. Diskusi
+
+> *Tujuan bagian ini:* memaknai hasil (§6.1), menjawab **mengapa 5 cm belum
+> realistis** secara kualitatif (§6.2) lalu **kuantitatif lewat error budget**
+> (§6.4), serta menyajikan **pendekatan jujur menuju 5 cm** dengan pemisahan label
+> valid vs demonstrasi (§6.5) dan rencana perbaikan ke depan (§6.6).
 
 ### 6.1 Interpretasi Hasil
 
@@ -1209,6 +1311,10 @@ pada GT, bukan pada algoritma yang lebih rumit:
 
 ## 7. Cara Menjalankan Pipeline
 
+> *Tujuan bagian ini:* langkah reproduksi dari nol — menyiapkan environment
+> (§7.1), urutan menjalankan stage pipeline dan analisis lanjutan (§7.2), serta
+> struktur output yang dihasilkan (§7.3).
+
 ### 7.1 Environment
 
 Aktifkan conda environment:
@@ -1365,3 +1471,35 @@ hasil dapat direproduksi dan dipertanggungjawabkan.
 | `scripts/14`–`18` | Analisis error floor, ablation, dekomposisi along/cross, map-matching, gambar 5 cm |
 | `docs/results/20260606_error_budget/` | **Analisis batas bawah error + pendekatan praktis 5 cm** (gambar + CSV) |
 | `output_lstm_no_leakage/` | Output eksperimen LSTM lama/no-leakage awal |
+
+---
+
+## Lampiran A: Glossary Istilah Teknis
+
+Definisi singkat istilah yang sering muncul di dokumen ini, agar mudah diikuti
+tanpa harus mencari referensi di luar. Diurutkan dari konsep dasar ke metrik.
+
+| Istilah | Penjelasan singkat |
+| --- | --- |
+| **UWB (Ultra-Wideband)** | Teknologi radio pita sangat lebar untuk mengukur **jarak** antar perangkat dengan presisi tinggi (orde sentimeter). |
+| **Anchor** | Perangkat UWB yang **posisinya tetap dan diketahui**, menjadi titik acuan pengukuran jarak. Pada penelitian ini ada 3 anchor. |
+| **Tag** | Perangkat UWB yang **dibawa robot**; posisinya inilah yang ingin diestimasi. |
+| **Trilaterasi / Multilaterasi** | Menentukan posisi tag dari beberapa jarak ke anchor (perpotongan lingkaran jarak). "Multilaterasi" memakai ≥ 3 jarak. |
+| **`d1, d2, d3` (jarak miring)** | Jarak langsung tag→anchor; masih terpengaruh **beda tinggi** tag dan anchor. |
+| **`el1, el2, el3` (jarak datar)** | Jarak miring yang sudah dikoreksi tinggi (Pythagoras), `el = √(d² − Δh²)`. Dipakai EKF karena memodelkan bidang 2D. |
+| **LOS / NLOS** | *Line-of-Sight* = sinyal lurus tanpa halangan (akurat). *Non-LOS* = sinyal terhalang/memantul, sehingga jarak terbaca **lebih panjang** dan bias. |
+| **Ground truth (GT)** | Posisi "sebenarnya" sebagai acuan kebenaran; di sini dibentuk dari **waypoint fisik + catatan waktu**, bukan dari prediksi model. |
+| **Waypoint** | Titik koordinat yang sudah ditentukan pada lintasan (mis. `(1,1)`, `(3,3)`); robot menandai saat melewatinya. |
+| **EKF (Extended Kalman Filter)** | Penyaring **prediksi–koreksi** yang menggabungkan model gerak dan pengukuran jarak untuk estimasi posisi yang halus dan stabil. |
+| **Innovation gating** | Aturan EKF untuk **menolak pengukuran** yang terlalu jauh dari prediksi (kemungkinan outlier/spike). |
+| **Divergensi** | Kondisi filter "lari" jauh dari kebenaran; ditangani oleh **guard anti-divergensi** (§4.4.1). |
+| **Residual** | Selisih yang masih tersisa; di sini `residual = GT − EKF`, yaitu yang dipelajari LSTM untuk dikoreksi. |
+| **LSTM** | Jenis jaringan saraf untuk data **berurutan/temporal**; di sini hanya mengoreksi residual EKF, bukan menebak posisi dari nol. |
+| **Constraint / Map-matching** | Memproyeksikan estimasi ke **bentuk lintasan yang diketahui**. Memakai pengetahuan tambahan → selalu dilaporkan terpisah dan diberi label. |
+| **MAE 2D** | Rata-rata jarak error per sampel. Relatif "memaafkan" lonjakan. |
+| **RMSE 2D** | Akar rata-rata kuadrat error; **menghukum lonjakan/spike** lebih berat → biasanya lebih tinggi dari MAE. |
+| **Median / P90 / P95** | Nilai tengah / persentil ke-90 / ke-95 dari error. P95 menggambarkan "seberapa buruk kasus terburuk yang masih umum". |
+| **GDOP** | *Geometric Dilution of Precision*: seberapa **geometri anchor** memperkuat atau melemahkan presisi. Mendekati 1 = geometri bagus. |
+| **Along-track vs cross-track** | Dekomposisi error relatif lintasan: **along-track** = searah jalan (sangat dipengaruhi *timing* GT), **cross-track** = tegak lurus jalan (akurasi lateral sensor sebenarnya). |
+| **Error budget** | Penguraian total error menjadi sumber-sumbernya (sensor, bias, timing GT, model) untuk menemukan **bottleneck** sebenarnya. |
+| **No-data-leakage** | Prinsip bahwa data test **tidak ikut** dipakai saat kalibrasi/tuning/training, sehingga angka evaluasi sah dipercaya. |
